@@ -68,7 +68,7 @@ summary(kk1)
 dim(kk1)
 
 # remove duplicates (there is no duplicated value):
- kk1[duplicated(kk1),]
+kk1[duplicated(kk1),]
 
 # or download the data and use:
 # kk1 <- read.table("example_dataset.txt",sep=",")
@@ -122,6 +122,53 @@ kk1.sf %>%
 
 ```
 
+**Alternatively**:
+```{r}
+library(tidyverse)
+# remotes::install_github("Hafro/geo")
+track <-
+  read_csv("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv") %>% 
+  # save some downstream typing by using shorter variable names
+  rename(vid = vessel_id, time = time_stamp) %>%  
+  # unique rows
+  distinct() %>% 
+  distinct(vid, time, lon, lat, .keep_all = TRUE) %>% 
+  # just in case
+  arrange(vid, time) %>% 
+  group_by(vid) %>% 
+  mutate(duration = difftime(time, lag(time), units = "secs"),
+         # warnings here are just because of the first datapoint
+         distance = geo::arcdist(lat, lon, lag(lat), lag(lon), scale = "km") * 1000,
+         # derived speed
+         speed2 = distance / as.numeric(duration)) %>% 
+  ungroup() %>% 
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326,
+           remove = FALSE)
+```
+
+```{r}
+# alternative to mapview:
+library(mapdeck) # greater control on points and things, one need though a token
+#  to get a background map
+mapdeck(location = c(11, 56.5), zoom = 8) %>% 
+  add_scatterplot(data = track %>% sample_n(5e4),
+                  lon = "lon", 
+                  lat = "lat",
+                  fill_colour = "speed",
+                  legend = FALSE,
+                  tooltip = "time",
+                  layer_id = "points",
+                  radius = 10,
+                  radius_min_pixels = 2,
+                  radius_max_pixels = 10,
+                  update_view = FALSE,
+                  stroke_opacity = 1,
+                  palette = "inferno")
+```
+
+
+
 3)     Remove points on land – consider using a buffer as well, as the precision of the coordinates can vary depending on satellite reception. I generally apply 10 metres buffer and remove all points intersecting the coastline polygon. 
 4)     Construct trajectories – Two options here: a) we need some information of the fishery – does it work during the day? Can we assume each day is a new trip? Then construct trajectories per day; b) Define when a vessel is in harbour using harbour polygons - A trip can then be defined as from the vessel leaves the harbour till et returnsJOSEFINE: polygon approach? (might need to interpolate first)
 5)     Remove unrealistic speeds (I run a loop for this)
@@ -133,6 +180,6 @@ For example- 1000 metres
 3)     Remove points on land that might result from this interpolation
 4)     Remove points at the beginning and end of trip (if ports are not known or vessels starting trips from the beach) – JOSEFINE: alternatively give list of ports and add buffer 
 5)     Try: Random Forest, HMMs, EM algorithm, fixed threshold expert based or estimated with regretion trees – use speed instead of distance?
- 
- 
+
+
 
