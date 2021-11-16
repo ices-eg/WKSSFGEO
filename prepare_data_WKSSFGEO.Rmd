@@ -62,7 +62,7 @@ Rationale: Some devices might send 0,0 messages for lats and longs when there is
 
 #######################
 # Import the data from the url
-kk1 <- read.table(url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/ac900ff1690bab7b42537e3e06aea009fd5309cc/code_example/example_data_fishing.txt"), head=TRUE, sep=",")
+kk1 <- read.csv("example_data_AIS.csv", head=TRUE, sep=",")
 head(kk1)
 summary(kk1)
 dim(kk1)
@@ -105,9 +105,9 @@ kk1 %>%
 #######################
 # Define the study area
 dim(kk1)
-kk1 <- kk1 %>% 
-filter(lat>55,lon<0, lon>(-8))
-dim(kk1)
+#kk1 <- kk1 %>% 
+#filter(lat>55,lon<0, lon>(-8))
+#dim(kk1)
 
 # make a spatial object
 head(kk1.sf <- st_as_sf(kk1, coords=c("lon","lat"),crs=4326, remove=FALSE))
