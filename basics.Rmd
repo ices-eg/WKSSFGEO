@@ -1,0 +1,43 @@
+---
+title: "Basics"
+author: "Einar Hjörleifsson"
+date: "`r lubridate::today()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(traipse)
+library(tidyverse)
+```
+
+Read in the data:
+
+```{r}
+fil <- "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv"
+d <- 
+  read_csv(fil) %>% 
+  # make typing downtream a little less painful
+  rename(vid = vessel_id,
+         time = time_stamp)
+glimpse(d)
+```
+
+Some acrobatics: 
+
+```{r}
+d %>% 
+  arrange(vid, time) %>% 
+  group_by(vid) %>% 
+  mutate(dist    = traipse::track_distance(lon, lat),        # meters
+         dura    = traipse::track_time(time),                # seconds
+         speed2  = traipse::track_speed(lon, lat, time),     # ms
+         bearing = traipse::track_bearing(lon, lat),         # degrees
+         angle   = traipse::track_angle(lon, lat),           # degrees
+         turn    = traipse::track_turn(lon, lat)) %>%        # degrees
+  glimpse()
+```
+
