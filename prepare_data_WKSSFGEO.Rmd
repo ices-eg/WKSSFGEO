@@ -30,7 +30,7 @@ require(lubridate) #for time series handler
 #require(rnaturalearth)
 #require(marmap)
 
-
+# test line from MMR! Amost there :D I am now able to edit this github file! Happy me.
 
 ```
 
