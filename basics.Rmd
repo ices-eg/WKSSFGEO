@@ -10,27 +10,104 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ```{r}
+library(mapdeck)
+library(sf)
 library(traipse)
 library(tidyverse)
 ```
 
-Read in the data:
-
-```{r}
-fil <- "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv"
-d <- 
-  read_csv(fil) %>% 
-  # make typing downtream a little less painful
-  rename(vid = vessel_id,
-         time = time_stamp)
-glimpse(d)
+```{r, echo = FALSE}
+fil <- "~/r/Pakkar2/ramb/TOPSECRET.R"
+if(file.exists(fil)) source(fil) 
 ```
 
-Some acrobatics: 
+```{r}
+rb_summary <- function(d) {
+  d %>% 
+    summarise(pings = n(),
+              t.min = min(time),
+              t.max = max(time),
+              s.min = min(speed),
+              s.med = median(speed),
+              s.max = max(speed),
+              di.min = min(dist, na.rm = TRUE),
+              di.med = median(dist, na.rm = TRUE),
+              di.max = max(dist, na.rm = TRUE),
+              du.min = min(dura, na.rm = TRUE),
+              du.med = median(dura, na.rm = TRUE),
+              du.max = max(dura, na.rm = TRUE),
+              n.tips = n_distinct(tid, na.rm = TRUE),
+              n.harb = n_distinct(hid, na.rm = TRUE))
+}
+rb_trip_identify <- function(d, vid = vid, inharbour = inharbour) {
+  d %>% 
+    group_by( {{vid}} ) %>% 
+    mutate(.gr0 = data.table::rleid( {{inharbour}} )) %>% 
+    group_by( {{vid}}, {{inharbour}}) %>% 
+    mutate(tid = data.table::rleid(.gr0)) %>% 
+    ungroup() %>% 
+    select(-.gr0) %>% 
+    mutate(tid = ifelse(inharbour, NA, tid))
+}
+rb_peek <- function(d, what, criteria) {
+  
+  d %>% 
+    filter( {{what}} > criteria) %>% 
+    pull(rid) ->
+    rid
+  rids <- NULL
+  for(i in 1:length(rid)) rids <- c(rids, rid[i] + c(-2, -1, 0, 1, 2))
+  d %>% slice(unique(rids))
+   
+}
+pm_trip <- function(m, data, radius = 10, trip = FALSE) {
+  m <- 
+    m %>% 
+    add_scatterplot(data = data,
+                    fill_colour = "tripid",
+                    radius = radius,
+                    palette = "inferno")
+  
+  if(trip) {
+    m <- 
+      m %>% 
+      mapdeck::add_path(data = data %>% 
+                          group_by(tripid) %>% 
+                          summarise(do_union = FALSE) %>%
+                          sf::st_cast("LINESTRING"),
+                        layer_id = "track",
+                        stroke_width = 100,
+                        width_min_pixels = 5,
+                        width_max_pixels = 10,
+                        tooltip = "tripid",
+                        auto_highlight = TRUE,
+                        highlight_colour = "#FF000095",
+                        update_view = FALSE,
+                        stroke_colour = "#E0FFFF80")
+  }
+  return(m)
+}
+```
+
 
 ```{r}
-d %>% 
+hb <- readRDS("harbours.rds")
+sf::st_geometry(hb) <- hb$geometry
+st_crs(hb) <- 4326
+hb <- 
+  hb %>% 
+  mutate(hid = 1:n()) %>% 
+  select(hid)
+d <- 
+  "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv" %>% 
+  read_csv() %>% 
+  # make typing downtream a little less painful
+  rename(vid = vessel_id,
+         time = time_stamp,
+         gid = gear) %>% 
   arrange(vid, time) %>% 
+  mutate(rid = 1:n()) %>% 
+  select(rid, everything()) %>% 
   group_by(vid) %>% 
   mutate(dist    = traipse::track_distance(lon, lat),        # meters
          dura    = traipse::track_time(time),                # seconds
@@ -38,6 +115,33 @@ d %>%
          bearing = traipse::track_bearing(lon, lat),         # degrees
          angle   = traipse::track_angle(lon, lat),           # degrees
          turn    = traipse::track_turn(lon, lat)) %>%        # degrees
-  glimpse()
+  ungroup() %>% 
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326,
+           remove = FALSE) %>% 
+  # get coordinates also as utm, just in case
+  st_transform(crs = 32630) %>% 
+  mutate(x = st_coordinates(.)[, 1],
+         y = st_coordinates(.)[, 2]) %>% 
+  st_transform(crs = 4326) %>% 
+  st_join(hb) %>% 
+  st_drop_geometry() %>% 
+  mutate(inharbour = ifelse(!is.na(hid), TRUE, FALSE)) %>% 
+  rb_trip_identify()
+d %>% glimpse()
 ```
+
+```{r}
+d %>% 
+  group_by(vid) %>% 
+  rb_summary() %>% 
+  knitr::kable(digits = 2)
+```
+
+**Abnormal step distances**:
+
+```{r}
+rb_peek(d, dist, 5000) %>% select(rid:dura, hid, speed2) %>% mutate(dist = dist / 1e3) %>% knitr::kable(digits = 4)
+```
+
 
