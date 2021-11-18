@@ -1,5 +1,5 @@
 ---
-title: "Basics"
+title: "Potential code flow"
 author: "Einar Hjörleifsson"
 date: "`r lubridate::today()`"
 output: html_document
@@ -40,6 +40,8 @@ library(tidyverse)
 fil <- "~/r/Pakkar2/ramb/TOPSECRET.R"
 if(file.exists(fil)) source(fil) 
 ```
+
+**Some potential functions**:
 
 ```{r}
 rb_summary <- function(d) {
@@ -111,6 +113,7 @@ pm_trip <- function(m, data, radius = 10, trip = FALSE) {
 }
 ```
 
+**The barbour is not in a proper format, hence**:
 
 ```{r}
 hb <- readRDS("harbours.rds")
@@ -120,6 +123,14 @@ hb <-
   hb %>% 
   mutate(hid = 1:n()) %>% 
   select(hid)
+```
+
+**The steps below are**:
+
+1. Identify points in harbour, hence use {sf}-functions
+2. Calculate consecutive points statistics by vessel and trip id
+
+```{r}
 d <- 
   "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv" %>% 
   read_csv() %>% 
@@ -138,11 +149,11 @@ d <-
   mutate(x = st_coordinates(.)[, 1],
          y = st_coordinates(.)[, 2]) %>% 
   st_transform(crs = 4326) %>% 
-  # Get the harbour id
+  # Get the harbour id for each point
   st_join(hb) %>% 
   st_drop_geometry() %>% 
   rb_trip_identify() %>% 
-  # ----------- problem, should not keep in final, solve at root
+  # ----------- problem, should not keep in final pipe flow, solve at root
   group_by(vid, tid) %>% 
   mutate(n.pings = n()) %>% 
   ungroup() %>% 
@@ -160,6 +171,8 @@ d <-
 d %>% glimpse()
 ```
 
+**Some thoughts on summary statistics** (could also be done by trip if added to `group_by`):
+
 ```{r}
 d %>% 
   group_by(vid) %>% 
@@ -167,7 +180,8 @@ d %>%
   knitr::kable(digits = 2)
 ```
 
-**Abnormal step distances** (note value of dist in km):
+**Abnormal step distances** within a trip (note value of dist in km). Shown are
+also adjacent values (hence us of `rb_peek` function:
 
 ```{r}
 d %>% 
