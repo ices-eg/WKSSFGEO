@@ -80,6 +80,8 @@ Then we will format the columns into the correct type (i.e. data, etc.) and make
 
 #######################
 # Import the data from the url
+
+
 # kk <- read.table(url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv"), head=TRUE, sep=",")
 
 # or download the file and import from local drive
