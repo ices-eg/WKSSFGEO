@@ -15,7 +15,7 @@ dss <- gps %>%
   sf::st_as_sf(coords = c("lon2","lat2")) %>%
   sf::st_set_crs(4326)
 
-dss <- st_join(dss, hbs, join = st_intersects)
+dss <- sf::st_join(dss, hbs, join = sf::st_intersects)
 
 setDT(dss)
 dss[is.na(SI_HARB), SI_HARB := 0]
@@ -69,7 +69,7 @@ trip <- trip[duration_hours > min_dur]
 if(split_trips == T)
   while (any(trip$duration_hours > max_dur)) {
     tls <- trip[duration_hours > max_dur][1,]
-    cutp2 <- dss[time_stamp >= tls$depart & time_stamp <= tls$return][which.max(INTV)]$id
+    cutp2 <- dss[time_stamp >= tls$depart & time_stamp <= tls$return][base::which.max(INTV)]$id
     
     if(dss[id == cutp2]$INTV < 3){
       trip[trip_id2 == tls$trip_id2, duration_hours := max_dur]
@@ -80,7 +80,7 @@ if(split_trips == T)
                            depart = c(tls$depart, dss[id == cutp2]$time_stamp),
                            return = c(dss[id == cutp2-1]$time_stamp, tls$return),
                            trip_id2 = paste(tls$trip_id2, 1:2, sep = "_"))
-    newtrips[, duration_hours := as.numeric(difftime(return, depart, units = "hours"))]
+    newtrips[, duration_hours := as.numeric(base::difftime(return, depart, units = "hours"))]
     trip <- rbindlist(list(trip[trip_id2 != tls$trip_id2], newtrips))
     setorder(trip, depart)
 }
