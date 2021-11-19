@@ -52,6 +52,8 @@ require(lubridate) #for time series handler
 #require(marmap)
 
 #test1 : go from Rstudio to git.
+#test2 : go from git to Rstudio.
+
 
 ```
 
