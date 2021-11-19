@@ -51,6 +51,10 @@ require(lubridate) #for time series handler
 #require(rnaturalearth)
 #require(marmap)
 
+#test1 : go from Rstudio to git.
+#test2 : go from git to Rstudio.
+#test3 : change a file in Rstudio
+
 ```
 
 # General remarks
@@ -76,10 +80,13 @@ Then we will format the columns into the correct type (i.e. data, etc.) and make
 
 #######################
 # Import the data from the url
+
+
 # kk <- read.table(url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv"), head=TRUE, sep=",")
 
 # or download the file and import from local drive
-kk1 <- read.table("/Volumes/GoogleDrive/My Drive/1_marta/trabalho/IPMA/ICES/example_data_AIS.csv", head=TRUE, sep=",")
+kk1 <- read.table("example_data_AIS.csv", head=TRUE, sep=",")
+
 
 dim(kk1)
 # 528679      7
