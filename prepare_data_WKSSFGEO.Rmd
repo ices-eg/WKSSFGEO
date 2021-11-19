@@ -53,7 +53,7 @@ require(lubridate) #for time series handler
 
 #test1 : go from Rstudio to git.
 #test2 : go from git to Rstudio.
-
+#test3 : change a file in Rstudio
 
 ```
 
@@ -86,6 +86,7 @@ Then we will format the columns into the correct type (i.e. data, etc.) and make
 
 # or download the file and import from local drive
 kk1 <- read.table("example_data_AIS.csv", head=TRUE, sep=",")
+
 
 dim(kk1)
 # 528679      7
