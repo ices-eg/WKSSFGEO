@@ -51,6 +51,8 @@ require(lubridate) #for time series handler
 #require(rnaturalearth)
 #require(marmap)
 
+#test1 : go from Rstudio to git.
+
 ```
 
 # General remarks
