@@ -349,6 +349,11 @@ kk1.sf %>%
   scale_color_viridis()+
   theme_minimal()
 
+```
+
+
+```{r individual_trips2}
+
 # Second alternative, we will use the function developped by DTU-Aqua
 
 ## NOT WORKING
