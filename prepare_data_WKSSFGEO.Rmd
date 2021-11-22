@@ -43,23 +43,25 @@ require(gridExtra)
 # spatial
 require(sf)
 require(raster)
+
+# for interactive mapping
 require(mapview)
 
 # gramatics and facilitators
 require(dplyr)
-require(lubridate) #for time series handler
+
+# for handling time series
+require(lubridate)
+
+# for coastline
 #require(rnaturalearth)
 #require(marmap)
-
-#test1 : go from Rstudio to git.
-#test2 : go from git to Rstudio.
-#test3 : change a file in Rstudio
 
 ```
 
 # General remarks
 
-The following is a conceptual workflow for identifying fishing trips from highly resolved spatial data, that will be used and tested during the workshop. 
+The following is a conceptual workflow for identifying fishing trips from highly resolved spatial data. This script will be used and improved during the WKSSFGEO workshop, hosted by IPMA.\
 
 Please remember every fishery as its specificities, which should be known in detail to perform any analysis.\
 
@@ -80,35 +82,36 @@ Then we will format the columns into the correct type (i.e. data, etc.) and make
 
 #######################
 # Import the data from the url
-
-
 # kk <- read.table(url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv"), head=TRUE, sep=",")
-
 # or download the file and import from local drive
+
+# or open it directly from github folder
 kk1 <- read.table("example_data_AIS.csv", head=TRUE, sep=",")
 
-
 dim(kk1)
-# 528679      7
+# 395843      8
+names(kk1)
+# "vessel_id", "time_stamp","lon","lat",
+# "speed", "course","gear"        
+head(kk1)
 
-# filter the data for the example. Lets used jan/feb of 2021 year
-# kk1 <- kk1 %>% 
-# filter(substr(time_stamp,1,7) %in% c("2021-01","2021-02"))
-# dim(kk1)
-# 74284     7
+# note there is an extra col in this dataset
+table(kk1$behaviour, useNA = "always")
+# select data where behaviour is 'Fishing'
+kk1 <- kk1[kk1$behaviour=="Fishing",]
 
-# much better now
-str(kk1)
-
-kk1$vessel_id<-as.factor(kk1$vessel_id)
+# 1. All records have vessel_id?
 table(kk1$vessel_id, useNA = "always")
-#    EX1    EX2   <NA> 
-#  51580  22704     0 
 
-#######################
+# 2. All records have lat/lon? Extent of the study area.
+range(kk1$lat)
+range(kk1$lon)
+
+# 3. Dates 
+
 # format time cols
-head(kk1$time_stamp)
-kk1$data<-as.POSIXct(as.character(kk1$time_stamp), format = "%Y-%m-%dT %H:%M:%SZ")
+kk1$time_stamp[1:2]
+head(kk1$data<-as.POSIXct(as.character(kk1$time_stamp), format = "%Y-%m-%d  %H:%M:%S"))
 
 # temporal duration
 range(kk1$data)
@@ -168,7 +171,7 @@ range(kk1$lon)
 kk1 %>% 
   #filter(day(data)==1) %>% 
   ggplot()+
-    geom_path(aes(x=lat, y=lon, col=day(data)))+
+    geom_path(aes(x=lat, y=lon, col=month(data)))+
     scale_color_viridis()+
     facet_wrap(~vessel_id, scales="free")+
     theme_minimal()
@@ -189,14 +192,17 @@ These duplicates tend to occur more in AIS.\
 kk1[duplicated(kk1),]
 
 # check duplicated time_stamps by vessel_id: 
-kk1[duplicated(paste(kk1$vessel_id,kk1$data)),]
-# no duplicated timestamps in this case
+dim(kk1[duplicated(paste(kk1$vessel_id,kk1$data)),])
 
 # this could also be done by
-kk1 %>% 
-  group_by(data, vessel_id) %>% 
-  summarise(N=n()) %>% 
-  filter(N>1)
+# kk1 %>% 
+#   group_by(data, vessel_id) %>% 
+#   summarise(N=n()) %>% 
+#   filter(N>1)
+
+# remove duplicated time/vessel_id entries (OR we could also average those)
+kk1 <- kk1[!duplicated(paste(kk1$vessel_id,kk1$data)),]
+dim(kk1)
 
 ```
 
@@ -213,9 +219,23 @@ c) We can have boats that do not leave from an harbour, but directly from the co
 
 ```{r remove_harbour}
 
-# This is not relevant in this case
+# Open harbor's file EU without Portugal (sf object)
+har <- readRDS("jepol/harbours.rds")
+plot(har)
+
+# Select points inside the harbours?
+# make spatial object of boats tracks
+kk1.sf <- kk1 %>% 
+   st_as_sf(coords=c("lon","lat"),crs=4326, remove=FALSE)
+
+# select points inside polygons
+kk1.sf <- st_join(kk1.sf, har)
+
+# points inside the ports (none)
+table(kk1.sf$SI_HARB, useNA = "always")
 
 ```
+
 
 ## 4) Correct speeds
 
@@ -229,43 +249,19 @@ In either case, we can remove those speeds or replace them by nearby speeds in t
 ```{r correct_speeds}
 
 # exclude weird speeds
-dim(kk1)
-kk1 <- kk1 %>% 
-  filter(speed >0.1, speed < 12)
-dim(kk1)
+dim(kk1.sf)
+summary(kk1.sf$speed)
+
+# if there were weird speeds:
+# kk1.sf <- kk1 %>% filter(speed < 12) #speed >0.1, 
+# dim(kk1)
 
 ```
-
-6) Check trip duration and distance covered - threshold required (again knowledge of the fishery required) - check trips visually
-
-```{r trip_duration}
-
-# Plot duration histogram
-kk1 %>% 
-  group_by(vessel.trip) %>% 
-  summarise(duration = round(difftime(max(data),min(data), units="mins"))) %>% 
-  arrange(duration) %>% 
-  # here we see there is a big gap between <99 mins and the remaining of the trips. We will cut there, then.
-  ggplot()+
-  geom_histogram(aes(x=duration), bins=50)+
-  theme_minimal()
-  # geom_point(aes(x=vessel.trip, y=duration))
-
-dim(kk1)
-kk1 <- kk1 %>% 
-  group_by(vessel.trip) %>% 
-  mutate(duration = round(difftime(max(data),min(data), units="mins"))) %>% 
-  filter(duration>99) %>% 
-  ungroup()
-dim(kk1)
-
-
-```
-
 
 ## **Alternatively** (from Einer:
 
 ```{r}
+
 library(tidyverse)
 # remotes::install_github("Hafro/geo")
 track <-
@@ -309,39 +305,84 @@ mapdeck(location = c(11, 56.5), zoom = 8) %>%
                   palette = "inferno")
 ```
 
+
 # II. Define individual trips 
 
-Two options (at least):\ 
+Two alternatives (at least):\ 
 
 a) If each trip is done in one day only, then we can construct the trajectories considering one trip by day;
 
 b) If there are boat trips that go from one day to another, we can use a time threshold for defining trips (general: applicable in all cases);\
 
-c) We can define when a vessel is in harbour using harbour. A trip can then be considered as from the moment the vessel leaves the harbour till et returns;\
+c) We can define that a trip starts when a vessel leaves the harbour and finishes when it returns; For this case we will use a function found in the functions folder ('define_trips.R').\
 
 ```{r individual_trips}
 
-kk1 <- kk1 %>% 
+dim(kk1.sf)
+kk1.sf <- kk1.sf %>% 
 dplyr::group_by(vessel_id) %>% 
     dplyr::arrange(data) %>% 
     dplyr::mutate(
       #diff.time = round(difftime(data, lag(data, 1, default = data[1])),1),
       #diff.cum = round(cumsum(as.numeric(diff.time))),  
       trip = cumsum(c(TRUE, diff(data) >= 10800)), #this is 3h*60min*60 sec because it is in seconds: head(diff(boats$horas))
-      vessel.trip = paste(vessel_id, trip, sep="_")) %>%
+      vessel_trip = paste(vessel_id, trip, sep="_")) %>%
     ungroup()
 
-table(kk1$vessel.trip)
+table(kk1.sf$vessel_trip, useNA = "always")
 
-# check
-kk1 %>%
-  filter(vessel_id=="EX1") %>% 
- #filter(vessel.trip %in% c("EX1_12","EX1_13","EX1_14","EX1_15")) %>% 
+# Plot one example
+kk1.sf %>%
+  filter(vessel_id=="EX_9") %>% 
   ggplot()+
-  geom_point(aes(x=data, y=speed, col=vessel.trip))+
+  geom_path(aes(x=data, y=speed, col=speed))+
+  facet_wrap(~vessel_trip, scales="free_x")+
+  scale_color_viridis()+
   theme_minimal()
 
-# ok!
+# map it
+kk1.sf %>%
+  filter(vessel_id=="EX_9") %>% 
+  ggplot()+
+  geom_sf(aes(col=speed))+
+  facet_wrap(~vessel_trip)+
+  scale_color_viridis()+
+  theme_minimal()
+
+# Second alternative, we will use the function developped by DTU-Aqua
+
+## NOT WORKING
+load("/Functions/define_trips.R")
+# Error in load("Functions/define_trips.R") : 
+#   bad restore file magic number (file may be corrupted) -- no data loaded
+define_trips(kk1.sf, min_dur = 0.5, max_dur = 72, split_trips = T)
+# does not run
+
+```
+
+6) Check trip duration and distance covered - threshold required (again knowledge of the fishery required) - check trips visually (this can only be done after individuals trips are defined).\
+
+```{r trip_duration}
+
+# Plot duration histogram
+kk1.sf %>% 
+  group_by(vessel_trip) %>% 
+  summarise(duration = round(difftime(max(data),min(data), units="mins"))) %>% 
+  arrange(duration) %>% 
+  # here we see there is a big gap between <99 mins and the remaining of the trips. We will cut there, then.
+  ggplot()+
+  geom_histogram(aes(x=duration), bins=50)+
+  theme_minimal()
+  # geom_point(aes(x=vessel.trip, y=duration))
+
+dim(kk1)
+kk1.sf <- kk1.sf %>% 
+  group_by(vessel.trip) %>% 
+  mutate(duration = round(difftime(max(data),min(data), units="mins"))) %>% 
+  filter(duration>99) %>% 
+  ungroup()
+dim(kk1)
+
 
 ```
 
