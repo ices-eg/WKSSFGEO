@@ -1,6 +1,6 @@
 Package: WKSSFGEO
 Type: Package
-Title: Some work done prior to and at the WKSSFGEO 2021. That deals primarily with vessel track classificion. But some stuff found here may be useful downstream.
+Title: Some work done prior and at the WKSSFGEO 2021
 Version: 0.1.0
 Authors@R: c(
   person("Einar", "Hjörleifsson", role = c("aut", "cre"), email = "einar.hjorleifsson@gmail.com"),
