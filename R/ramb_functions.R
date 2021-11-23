@@ -1,5 +1,30 @@
+#' rb_define_trips
+#' 
+#'
+#' @param vid vector containing vessel id
+#' @param hid vector containing harbour id, value assumed NA or zero if out of harbour
+#'
+#' @return A vector containing unique trip id, negative if in harbour, positive if 
+#' out of harbour
+#' @export
+#'
+rb_define_trips <- function(vid = vid, time = time, hid = hid) {
+  tibble::tibble(vid = {{ vid }},
+                 time = {{ time }},
+                 hid = {{ hid }}) %>% 
+    dplyr::mutate(inharbour = ifelse(!is.na( hid | hid == 0), TRUE, FALSE)) %>% 
+    dplyr::group_by( vid ) %>% 
+    dplyr::mutate(.gr0 = data.table::rleid( inharbour )) %>% 
+    dplyr::group_by( vid, inharbour) %>% 
+    dplyr::mutate(tid = data.table::rleid(.gr0)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(tid = ifelse(inharbour, -tid, tid)) %>% 
+    dplyr::pull(tid)
+}
+
+
 # plagarized from the geo-package that is not on cran
-#' acdist
+#' rb_acdist
 #' 
 #' Computes distances between lat/lon data points. 
 #'
