@@ -1,0 +1,194 @@
+---
+title: "Potential code flow"
+author: "Einar Hjörleifsson"
+date: "`r lubridate::today()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```
+The code flow is driven by:
+ * Solve "problems" at root, not downstream
+ * Delay filtering of data to the last moment possible
+ * Wrap things that are non-intuative or repetative into functions - use
+    desriptive name for function (verbs, desribing what it does)
+```
+
+```
+Should we aim at using standard variable names:
+  * vid: vessel id
+  * gid: gear id
+  * hit: harbour id
+  * tid: trip id
+  * time: datetime
+  * date: date
+  * ...: ...
+```
+  
+
+```{r}
+library(mapdeck)
+library(sf)
+library(traipse)
+library(tidyverse)
+```
+
+```{r, echo = FALSE}
+fil <- "~/r/Pakkar2/ramb/TOPSECRET.R"
+if(file.exists(fil)) source(fil) 
+```
+
+**Some potential functions**:
+
+```{r}
+rb_summary <- function(d) {
+  d %>% 
+    summarise(pings = n(),
+              t.min = min(time),
+              t.max = max(time),
+              s.min = min(speed),
+              s.med = median(speed),
+              s.max = max(speed),
+              di.min = min(dist, na.rm = TRUE),
+              di.med = median(dist, na.rm = TRUE),
+              di.max = max(dist, na.rm = TRUE),
+              du.min = min(dura, na.rm = TRUE),
+              du.med = median(dura, na.rm = TRUE),
+              du.max = max(dura, na.rm = TRUE),
+              n.tips = n_distinct(tid, na.rm = TRUE),
+              n.harb = n_distinct(hid, na.rm = TRUE))
+}
+rb_trip_identify <- function(d, vid = vid, hid = hid) {
+  d %>% 
+    mutate(inharbour = ifelse(!is.na( {{hid}} ), TRUE, FALSE)) %>% 
+    group_by( {{vid}} ) %>% 
+    mutate(.gr0 = data.table::rleid( inharbour )) %>% 
+    group_by( {{vid}}, inharbour) %>% 
+    mutate(tid = data.table::rleid(.gr0)) %>% 
+    ungroup() %>% 
+    mutate(tid = ifelse(inharbour, NA, tid)) %>% 
+    select(c(-.gr0, inharbour))
+    
+}
+rb_peek <- function(d, what, criteria) {
+  
+  d %>% 
+    filter( {{what}} > criteria) %>% 
+    pull(rid) ->
+    rid
+  rids <- NULL
+  for(i in 1:length(rid)) rids <- c(rids, rid[i] + c(-2, -1, 0, 1, 2))
+  d %>% slice(unique(rids))
+  
+}
+pm_trip <- function(m, data, radius = 10, trip = FALSE) {
+  m <- 
+    m %>% 
+    add_scatterplot(data = data,
+                    fill_colour = "tripid",
+                    radius = radius,
+                    palette = "inferno")
+  
+  if(trip) {
+    m <- 
+      m %>% 
+      mapdeck::add_path(data = data %>% 
+                          group_by(tripid) %>% 
+                          summarise(do_union = FALSE) %>%
+                          sf::st_cast("LINESTRING"),
+                        layer_id = "track",
+                        stroke_width = 100,
+                        width_min_pixels = 5,
+                        width_max_pixels = 10,
+                        tooltip = "tripid",
+                        auto_highlight = TRUE,
+                        highlight_colour = "#FF000095",
+                        update_view = FALSE,
+                        stroke_colour = "#E0FFFF80")
+  }
+  return(m)
+}
+```
+
+**The barbour is not in a proper format, hence**:
+
+```{r}
+hb <- readRDS("harbours.rds")
+sf::st_geometry(hb) <- hb$geometry
+st_crs(hb) <- 4326
+hb <- 
+  hb %>% 
+  mutate(hid = 1:n()) %>% 
+  select(hid)
+```
+
+**The steps below are**:
+
+1. Identify points in harbour, hence use {sf}-functions
+2. Calculate consecutive points statistics by vessel and trip id
+
+```{r}
+d <- 
+  "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/example_data_AIS.csv" %>% 
+  read_csv() %>% 
+  # make typing downtream a little less painful
+  rename(vid = vessel_id,
+         time = time_stamp,
+         gid = gear) %>% 
+  arrange(vid, time) %>% 
+  mutate(rid = 1:n()) %>% 
+  select(rid, everything()) %>% 
+  st_as_sf(coords = c("lon", "lat"),
+           crs = 4326,
+           remove = FALSE) %>% 
+  # get coordinates also as utm, just in case
+  st_transform(crs = 32630) %>% 
+  mutate(x = st_coordinates(.)[, 1],
+         y = st_coordinates(.)[, 2]) %>% 
+  st_transform(crs = 4326) %>% 
+  # Get the harbour id for each point
+  st_join(hb) %>% 
+  st_drop_geometry() %>% 
+  rb_trip_identify() %>% 
+  # ----------- problem, should not keep in final pipe flow, solve at root
+  group_by(vid, tid) %>% 
+  mutate(n.pings = n()) %>% 
+  ungroup() %>% 
+  filter(n.pings >= 3) %>% 
+  select(-n.pings) %>% 
+  # -----------
+  group_by(vid, tid) %>% 
+  mutate(dist    = traipse::track_distance(lon, lat),        # meters
+         dura    = traipse::track_time(time),                # seconds
+         speed2  = traipse::track_speed(lon, lat, time),     # ms
+         bearing = traipse::track_bearing(lon, lat),         # degrees
+         angle   = traipse::track_angle(lon, lat),           # degrees
+         turn    = traipse::track_turn(lon, lat)) %>%        # degrees
+  ungroup()
+d %>% glimpse()
+```
+
+**Some thoughts on summary statistics** (could also be done by trip if added to `group_by`):
+
+```{r}
+d %>% 
+  group_by(vid) %>% 
+  rb_summary() %>% 
+  knitr::kable(digits = 2)
+```
+
+**Abnormal step distances** within a trip (note value of dist in km). Shown are
+also adjacent values (hence us of `rb_peek` function:
+
+```{r}
+d %>% 
+  rb_peek(dist, 5000) %>% 
+  select(rid:dura, hid, speed2) %>% 
+  mutate(dist = dist / 1e3) %>% 
+  knitr::kable(digits = 4)
+```
+
+

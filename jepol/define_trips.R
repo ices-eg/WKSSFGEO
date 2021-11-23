@@ -1,29 +1,44 @@
-define_trips <- function(x, min_dur = 0.5, max_dur = 72, split_trips = T){
+# 2021-11-19 Comment by einar --------------------------------------------------
+#  This is a nice piece. I did three things
+#  1. No libary loading, all function calls withing the package::function calls
+#  2. Simplifed few lines
+#  3. Added a new arguement in the function call, `filter` being a boolean. The
+#     default is TRUE, so the function should return the same thing as before
+#     If filter = FALSE, the object returned has the same number of rows as the
+#     original passed in (and it is class tibble, not class data.table. 
+#     Note that this approach assumes that a variable 
+#     named .rid (rowid) exists in the object passed to the function, the .rid
+#     being the variable that joins the original dataframe and the derived dataframe
+#     (if only needed if filter = FALSE
+#     One could of course easily add the .rid internally withing the function so
+#     the user does not have to worry about this stuff.
+define_trips <- function(x, min_dur = 0.5, max_dur = 72, split_trips = T, filter = TRUE){
   #add required packages
-  require(data.table, sf)
+  #require(data.table, sf)
   
-out <- data.table()
+out <- data.table::data.table()
 for(i in unique(x$vessel_id)){
 
 gps <- x[vessel_id == i]
-setDT(gps)
+data.table::setDT(gps)
 
-gps[, lon2 := lon]
-gps[, lat2 := lat]
+#gps[, lon2 := lon]
+#gps[, lat2 := lat]
 
 dss <- gps %>%
-  sf::st_as_sf(coords = c("lon2","lat2")) %>%
-  sf::st_set_crs(4326)
+  sf::st_as_sf(coords = c("lon","lat"),
+               crs = 4326,
+               remove = FALSE)
 
 dss <- sf::st_join(dss, hbs, join = sf::st_intersects)
 
-setDT(dss)
+data.table::setDT(dss)
 dss[is.na(SI_HARB), SI_HARB := 0]
 
-setorder(dss, time_stamp)
+data.table::setorder(dss, time_stamp)
 dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
 
-table(dss$SI_HARB)
+#table(dss$SI_HARB)
 
 dss[, id := 1:.N]
 dss[, geometry := NULL]
@@ -53,7 +68,7 @@ if(dss[.N]$SI_HARB == 0)
   dss[.N, HARB_EVENT := 2]
 
 #Make data.table with timings of trip
-trip <- data.table(vessel_id = i,
+trip <- data.table::data.table(vessel_id = i,
                    depart = dss[HARB_EVENT == 1]$time_stamp,
                    return = dss[HARB_EVENT == 2]$time_stamp
 )
@@ -76,13 +91,13 @@ if(split_trips == T)
       next
     }
 
-    newtrips <- data.table(vessel_id = i,
+    newtrips <- data.table::data.table(vessel_id = i,
                            depart = c(tls$depart, dss[id == cutp2]$time_stamp),
                            return = c(dss[id == cutp2-1]$time_stamp, tls$return),
                            trip_id2 = paste(tls$trip_id2, 1:2, sep = "_"))
     newtrips[, duration_hours := as.numeric(base::difftime(return, depart, units = "hours"))]
-    trip <- rbindlist(list(trip[trip_id2 != tls$trip_id2], newtrips))
-    setorder(trip, depart)
+    trip <- data.table::rbindlist(list(trip[trip_id2 != tls$trip_id2], newtrips))
+    data.table::setorder(trip, depart)
 }
 
 trip <- trip[duration_hours != 0]
@@ -95,20 +110,27 @@ if(any(trip$duration_hours < min_dur)){
 }
 
 
-setkey(trip, vessel_id, depart, return)
+data.table::setkey(trip, vessel_id, depart, return)
 x[ ,time_stamp2 := time_stamp]
-setkey(x, vessel_id, time_stamp, time_stamp2)
+data.table::setkey(x, vessel_id, time_stamp, time_stamp2)
 
 
-midi <- foverlaps(x, trip, type="any", nomatch=NULL) 
+midi <- data.table::foverlaps(x, trip, type="any", nomatch=NULL) 
 
 midi[!is.na(trip_id2), trip_id := trip_id2]
 midi[, `:=`(depart = NULL, return = NULL, duration_hours = NULL, time_stamp2 = NULL, trip_id2 = NULL)]
-out <- rbindlist(list(out, midi), fill = T)
+out <- data.table::rbindlist(list(out, midi), fill = T)
 
 }
 
-return(out)
+if(filter) {
+  return(out)
+} else {
+  x %>% 
+    tibble::as_tibble() %>% 
+    dplyr::full_join(out %>% tibble::as_tibble() %>% dplyr::select(.rid, trip_id)) %>% 
+    return()
+}
 
 
 }
