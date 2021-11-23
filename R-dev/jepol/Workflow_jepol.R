@@ -13,6 +13,10 @@ dat <- readr::read_csv(githubURL1)
 setDT(dat)
 dat
 
+#Remove duplicates
+dat <- unique(dat, by = c("vessel_id", "time_stamp"))
+
+
 #Download the harbours file to you desk and load it to the r environment:
 #https://github.com/ices-eg/WKSSFGEO/blob/main/data/harbours.rds
 hbs <- readRDS("//aqua-cp-jepol18/C$/Users/jepol/Downloads/harbours.rds")
@@ -45,7 +49,7 @@ schedule
 
 #Look at a single trip
 tst <- out2[trip_id == unique(out2$trip_id)[30]]
-tst <- out2[trip_id == "EX_10_1"]
+tst <- out2[trip_id == "EX_10_5_2"]
 
 pts <- tst %>%
   sf::st_as_sf(coords = c("lon","lat")) %>%
