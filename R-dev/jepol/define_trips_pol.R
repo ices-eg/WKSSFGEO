@@ -13,15 +13,18 @@ define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72,
   }
   
   setDT(x)[, recid := 1:.N]
+  if("SI_HARB" %!in% names(x) | any(is.na(x$SI_HARB)))
+    stop("No harbour column in dataset, please add it (add_harbour)")
+  
+  
   out <- data.table()
 for(i in unique(x$vessel_id)){
   progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
  
-  dss <- x[vessel_id == i]
+  gps <- x[vessel_id == i]
 
-  if("SI_HARB" %!in% names(gps) | any(is.na(gps$SI_HARB)))
-    stop("No harbour column in dataset, please add it (add_harbour)")
-    
+     
+  dss <- gps
   setorder(dss, time_stamp)
   dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
 
