@@ -22,7 +22,7 @@ dat
 devtools::source_url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/jepol/define_trips.R")
 
 #Use function to extract the trips from the dataset
-out <- define_trips(dat)
+out <- define_trips_pol(dat)
 
 #Look at a single trip
 tst <- out[trip_id == unique(out$trip_id)[20]]
