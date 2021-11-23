@@ -1,3 +1,17 @@
+#' define_trips_pol
+#'
+#' Use the columns "SI_HARB" to determine when a vessel is on a trip. A trip is defined
+#' from when it leaves the harbour till it returns
+#'
+#' @param x gps dataset
+#' @param min_dur the minimum trip length (hours)
+#' @param max_dur the maximum trip length (hours)
+#' @param split_trips If the trip is longer than the maximum hours, it will try to split
+#' the trip into two or more trips, if there is long enough intervals between pings
+#' @param preserve_all Should all pings inside harbour be preserved also?
+#'
+#' @return a gps datset
+
 define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72, 
                              split_trips = T, preserve_all = F){
   #add required packages
