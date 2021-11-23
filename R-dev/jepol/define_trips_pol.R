@@ -17,30 +17,13 @@ define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72,
 for(i in unique(x$vessel_id)){
   progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
  
-  gps <- x[vessel_id == i]
+  dss <- x[vessel_id == i]
 
-  if("SI_HARB" %!in% names(gps)){
-    gps[, lon2 := lon]
-    gps[, lat2 := lat]
-
-dss <- gps %>%
-  sf::st_as_sf(coords = c("lon2","lat2")) %>%
-  sf::st_set_crs(4326)
-
-gps[, lon2 := NULL]
-gps[, lat2 := NULL]
-
-dss <- sf::st_join(dss, hbs, join = sf::st_intersects)
-
-setDT(dss)
-dss[is.na(SI_HARB), SI_HARB := 0]
-  }else{
-  dss <- gps
-}
-
-  
-setorder(dss, time_stamp)
-dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
+  if("SI_HARB" %!in% names(gps) | any(is.na(gps$SI_HARB)))
+    stop("No harbour column in dataset, please add it (add_harbour)")
+    
+  setorder(dss, time_stamp)
+  dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
 
 table(dss$SI_HARB)
 
