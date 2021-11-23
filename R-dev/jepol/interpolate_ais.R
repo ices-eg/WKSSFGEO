@@ -60,7 +60,7 @@ for(i in unique(x$vessel_id)){
   dss <- x[vessel_id == i]
   
   #Add interval between points (minutes)
-  dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, source = "lag"), time_stamp, units = "mins"))]
+  dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
   
   out <- list()
   
@@ -159,7 +159,7 @@ if(!identical(out, list())){
   dss[is.na(lon), `:=`(lat = lat1, lon = lon1, speed = sp, time_stamp = ti, source = ty,
                        SI_HARB = 0)]
   
-  dss[, INTV:=-as.numeric(difftime(data.table::shift(dss$time_stamp, fill = NA, source = "lag"), dss$time_stamp, units = "secs"))]
+  dss[, INTV:=-as.numeric(difftime(data.table::shift(dss$time_stamp, fill = NA, type = "lag"), dss$time_stamp, units = "secs"))]
   dss[, c("id2","lon1", "lat1","sp", "ti","ty"):=NULL] 
   dss[, vessel_id := i]
   setorder(dss, time_stamp)
