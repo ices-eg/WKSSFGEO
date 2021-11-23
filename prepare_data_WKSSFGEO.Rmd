@@ -57,6 +57,7 @@ require(lubridate)
 #require(rnaturalearth)
 #require(marmap)
 
+# test1: from Rstudio mac to git push
 ```
 
 # General remarks
