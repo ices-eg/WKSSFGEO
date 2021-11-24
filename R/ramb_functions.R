@@ -31,7 +31,7 @@ rb_define_trips <- function(vid = vid, hid = hid) {
 # plagarized from the geo-package that is not on cran
 #' rb_acdist
 #' 
-#' Computes distances between lat/lon data points. 
+#' Computes APPROXIMATE distances between lat/lon data points.
 #'
 #' @param lat Latitude of first coordinate or list with lat, lon of first coordinate.
 #' @param lon Longitude of first coordinate or list with lat, lon of second coordinate.
@@ -42,6 +42,13 @@ rb_define_trips <- function(vid = vid, hid = hid) {
 #' @return A single vector of distances between pairs of points
 #' @export
 #'
+#' @examples
+#' 
+#' rb_arcdist(65.0, -24.0, 66.0, -24.0, "nmi") # Input in vector format.
+#' # works with group_by
+#' tibble::tibble(vid = c(1, 1, 1, 2, 2), lon = c(64.1, 64.2, 64.3, 64.5, 64.6), lat = c(-24, -24.5, -25, -25.5, -26)) %>% 
+#'   dplyr::group_by(vid) %>% 
+#'   dplyr::mutate(sd = rb_arcdist(lat, lon, dplyr::lead(lat), dplyr::lead(lon)))
 
 rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
   if (is.null(lat1)) {
@@ -51,7 +58,7 @@ rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
     lat <- lat$lat
   }
   if (scale == "nmi") 
-    miles <- 1.852
+    miles <- 1.8512
   else miles <- 1
   rad <- 6367
   mult1 <- (rad/miles)
