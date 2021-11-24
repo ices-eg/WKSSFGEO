@@ -1,3 +1,17 @@
+#' define_trips_pol
+#'
+#' Use the columns "SI_HARB" to determine when a vessel is on a trip. A trip is defined
+#' from when it leaves the harbour till it returns
+#'
+#' @param x gps dataset
+#' @param min_dur the minimum trip length (hours)
+#' @param max_dur the maximum trip length (hours)
+#' @param split_trips If the trip is longer than the maximum hours, it will try to split
+#' the trip into two or more trips, if there is long enough intervals between pings
+#' @param preserve_all Should all pings inside harbour be preserved also?
+#'
+#' @return a gps datset
+
 define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72, 
                              split_trips = T, preserve_all = F){
   #add required packages
@@ -13,29 +27,20 @@ define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72,
   }
   
   setDT(x)[, recid := 1:.N]
+  if("SI_HARB" %!in% names(x) | any(is.na(x$SI_HARB)))
+    stop("No harbour column in dataset, please add it (add_harbour)")
+  
+  
   out <- data.table()
 for(i in unique(x$vessel_id)){
   progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
  
   gps <- x[vessel_id == i]
 
-gps[, lon2 := lon]
-gps[, lat2 := lat]
-
-dss <- gps %>%
-  sf::st_as_sf(coords = c("lon2","lat2")) %>%
-  sf::st_set_crs(4326)
-
-gps[, lon2 := NULL]
-gps[, lat2 := NULL]
-
-dss <- sf::st_join(dss, hbs, join = sf::st_intersects)
-
-setDT(dss)
-dss[is.na(SI_HARB), SI_HARB := 0]
-
-setorder(dss, time_stamp)
-dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
+     
+  dss <- gps
+  setorder(dss, time_stamp)
+  dss[, INTV:=-as.numeric(difftime(data.table::shift(time_stamp, fill = NA, type = "lag"), time_stamp, units = "mins"))]
 
 table(dss$SI_HARB)
 
@@ -113,7 +118,7 @@ setkey(trip, vessel_id, depart, return)
 gps[ ,time_stamp2 := time_stamp]
 setkey(gps, vessel_id, time_stamp, time_stamp2)
 
-midi <- foverlaps(x, trip, type="any", nomatch=NULL) 
+midi <- foverlaps(gps, trip, type="any", nomatch=NULL) 
 gps[, time_stamp2 := NULL]
 
 midi[!is.na(trip_id2), trip_id := trip_id2]
