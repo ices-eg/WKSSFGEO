@@ -1,3 +1,9 @@
+# 2021-11-24 Einar Hjorleifsson (einar.hjorleifsson@gmail.com)
+#  These functions were taken from a personal package of mine
+#  [https://github.com/einarhjorleifsson/ramb] that is sort of under
+#  development, future of it unknown. It is kind of me rambling
+#  without clear direction or purpose :-)
+
 #' Define trip
 #' 
 #' Calculates a unique identifier for a change in event. Normally applied via
@@ -67,3 +73,30 @@ rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
                         cos(mult2 * lat) * cos(mult2 * lat1) * cos(mult2 * lon - 
                                                                      mult2 * lon1)))
 }
+
+#' ms2kn
+#'
+#' meters per second to knots for those of us that forget the convertion number
+#' 
+#' @param x A numerical vector of speed in meters per second
+#'
+#' @return A vector, speed in knots (nautical miles per hour)
+#' @export
+#'
+ms2kn <- function(x) {
+  x * 1.94384449
+}
+
+#' kn2ms
+#'
+#' knots to meters per second for those of us that forget the convertion number
+#' 
+#' @param x A numerical vector of speed in knots
+#'
+#' @return A vector, speed in meters per second
+#' @export
+#'
+kn2ms <- function(x) {
+  x / 1.94384449
+}
+

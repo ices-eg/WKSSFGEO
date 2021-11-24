@@ -7,6 +7,30 @@ description on the (not so obvious) variables.
 
 
 # example_data_GPS.csv
+
 This data set is an example of the data obtained by GPS trackers located on bivalve dredge and octopus traps in the south of Portugal. 
 Some of the tracks were validated by a expert.
-...
+
+# doi_10.5061_dryad.k80bp46__v1.txt
+
+#' Vessel tracks and behaviour of creel fisheries
+#'
+#' A dataset of movement data collected every 60 sec from 5 trips by 5 different
+#' small scale fishing vessels using creels. (Mendo, Tania; Smout, Sophie; Photopoulou, Theoni; James, Mark (2019), Data
+#' from: Identifying fishing grounds from vessel tracks: model-based inference
+#' for small scale fisheries)
+#'
+#' @format A data frame with 2226 rows and 6 variables:
+#' \describe{
+#'   \item{x}{Easting, proj '+proj=utm +zone=30 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0'}
+#'   \item{y}{Northing, proj '+proj=utm +zone=30 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0'}
+#'   \item{date}{time of position}
+#'   \item{id}{vessel identification}
+#'   \item{behaviour}{Vessel activity}}
+#'   \item{ID}{same as ID}
+#'
+#' @source Mendo, Tania; Smout, Sophie; Photopoulou, Theoni; James, Mark (2019), Data
+#' from: Identifying fishing grounds from vessel tracks: model-based inference
+#' for small scale fisheries (\url{https://doi.org/10.5061/dryad.k80bp46})
+#'
+"creel"
