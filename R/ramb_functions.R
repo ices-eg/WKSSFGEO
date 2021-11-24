@@ -1,16 +1,20 @@
 #' rb_define_trips
 #' 
+#' Provides a unique identifier for a change in event. 
 #'
 #' @param vid vector containing vessel id
 #' @param hid vector containing harbour id, value assumed NA or zero if out of harbour
 #'
-#' @return A vector containing unique trip id, negative if in harbour, positive if 
+#' @return A vector containing unique integer, negative if in harbour, positive if 
 #' out of harbour
 #' @export
 #'
-rb_define_trips <- function(vid = vid, time = time, hid = hid) {
+#' @examples
+#' tibble::tibble(vid = c(1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
+#'                hid = c(NA, NA, 202, NA, NA, 202, 202, 202, NA, NA, NA, NA, NA, NA, NA, NA, 202)) %>% 
+#'   dplyr::mutate(tid = rb_define_trips(vid, hid))
+rb_define_trips <- function(vid = vid, hid = hid) {
   tibble::tibble(vid = {{ vid }},
-                 time = {{ time }},
                  hid = {{ hid }}) %>% 
     dplyr::mutate(inharbour = ifelse(!is.na( hid | hid == 0), TRUE, FALSE)) %>% 
     dplyr::group_by( vid ) %>% 
