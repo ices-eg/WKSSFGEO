@@ -1,9 +1,10 @@
-#' rb_define_trips
+#' Define trip
 #' 
-#' Provides a unique identifier for a change in event. 
+#' Calculates a unique identifier for a change in event. Normally applied via
+#' pipeflow within dplyr::mutate.
 #'
-#' @param vid vector containing vessel id
-#' @param hid vector containing harbour id, value assumed NA or zero if out of harbour
+#' @param vid vector, e.g. containing vessel id
+#' @param hid vector, e.g. containing harbour id, value assumed NA or zero if out of harbour
 #'
 #' @return A vector containing unique integer, negative if in harbour, positive if 
 #' out of harbour
