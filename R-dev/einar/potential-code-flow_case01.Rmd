@@ -195,7 +195,7 @@ p.base <-
 ```{r}
 d2 <- 
   d %>% 
-  rb_gaussian(vid, lon, lat) %>% 
+  rb_gaussian(vid, time, lon, lat) %>% 
   mutate(Fishing = ifelse(.speed <= threshold.upper, TRUE, FALSE))
 d2 %>%
   count(behaviour, Fishing) %>%

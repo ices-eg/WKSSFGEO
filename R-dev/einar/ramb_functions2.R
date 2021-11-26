@@ -64,7 +64,7 @@ rb_gaussian_binary_clustering <- function(d, vid, time, lon, lat, cs = 1.96, min
 #' @return A tibble containing lower and upper speed threshold of the first Gaussian mode
 #' @export
 #'
-rb_gaussian <- function(d, vid, lon, lat, minimal = TRUE, cs = 1.96) {
+rb_gaussian <- function(d, vid, time, lon, lat, mu = c(1,4,8), sigma = c(1,1,1), minimal = TRUE, cs = 1.96) {
   
   cd <- c(deparse(substitute(lon)), deparse(substitute(lat)))
   type <- ifelse(any(cd %in% "x"), "UTM", "LL")
@@ -76,14 +76,17 @@ rb_gaussian <- function(d, vid, lon, lat, minimal = TRUE, cs = 1.96) {
     # if already grouped, this suffices
     #tidyr::nest() %>% 
     dplyr::mutate(data = purrr::map(data, as.data.frame),
-                  pd = purrr::map(data, select, {{ lon }}, {{ lat }} ),
+                  pd = purrr::map(data, select, {{ lon }}, {{ lat }}, {{ time }}),
                   pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = type, coordNames = cd)),
                   # or?
                   # assume last step (currently NA) is the same as the second last step
                   pd = purrr::map(pd, fill, step),
-                  pd = purrr::map(pd, dplyr::select, step, angle),
-                  pd = purrr::map(pd, dplyr::mutate, .speed = ms2kn(step * mult / 60)),
-                  md = purrr::map(pd, function(x) mixtools::normalmixEM(x$.speed, mu = c(1,4,8), sigma = c(1,1,1))),
+                  pd = purrr::map(pd, dplyr::select, step, angle, {{ time }} ),
+                  pd = purrr::map(pd, dplyr::mutate, .dura = as.numeric(difftime(lead( {{ time }} ), {{ time }}, units = "sec"))),
+                  pd = purrr::map(pd, fill, .dura),
+                  pd = purrr::map(pd, dplyr::mutate, .speed = ms2kn(step * mult / .dura)),
+                  pd = purrr::map(pd, dplyr::select, -time),
+                  md = purrr::map(pd, function(x) mixtools::normalmixEM(x$.speed, mu = mu, sigma = sigma)),
                   threshold.lower = purrr::map_dbl(md, function(x) x$mu[1] - cs * x$sigma[1]),
                   threshold.upper = purrr::map_dbl(md, function(x) x$mu[1] + cs * x$sigma[1]))
   
@@ -91,7 +94,6 @@ rb_gaussian <- function(d, vid, lon, lat, minimal = TRUE, cs = 1.96) {
     d %>%
       select(-md) %>% 
       unnest(c(data, pd)) %>% 
-      rename(.speed = ) %>%
       return()
   } else {
     return(d)
