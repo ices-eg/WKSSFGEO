@@ -100,3 +100,31 @@ kn2ms <- function(x) {
   x / 1.94384449
 }
 
+#' rb_event
+#' 
+#' Identify change in event
+#'
+#' @param x A vector, normally character or integer. For track data this could
+#' e.g. be change in fishing behaviour
+#'
+#' @return A numerical vector that labels each "discreet" event
+#' @export
+#'
+#' @example
+#' tibble::tibble(vid = c(rep(1, 10), rep(2, 10)),
+#' behaviour = c(rep("steaming", 4), rep("fishing", 4), rep("steaming", 2),
+#'               rep("harbour", 2), rep("steaming", 2), rep("fishing", 6))) %>% 
+#'   dplyr::group_by(vid) %>% 
+#'   dplyr::mutate(change = rb_event(behaviour))
+rb_event <- function(x) {
+  x <- dplyr::if_else(x != dplyr::lag(x), 1L, 0L, 1L)
+  x <- cumsum(x)
+  return(x)
+}
+
+
+rb_speed <- function(time, lon, lat) {
+  (rb_arcdist(lat, lon, lead(lat), lead(lon), scale = "km") * 1e3) /
+    as.numeric(difftime(lead(time), time, units = "sec")) %>% 
+    ms2kn()
+}
