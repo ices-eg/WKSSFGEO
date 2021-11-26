@@ -33,28 +33,6 @@ rb_gaussian_binary_clustering <- function(d, vid, time, lon, lat, cs = 1.96, min
 }
 
 
-# # get to work inside a function call
-# rb_prep_data <- function(d, vid, lon, lat, minimal = TRUE, cs = 1.96) {
-#   
-#   cd <- c(deparse(substitute(lon)), deparse(substitute(lat)))
-#   type <- ifelse(any(cd %in% "x"), "UTM", "LL")
-#   mult <- ifelse(type == "UTM", 1, 1000)
-#   
-#   d <- 
-#     d %>% 
-#     tidyr::nest(data = -c( {{ vid }} )) %>%
-#     dplyr::mutate(data = purrr::map(data, as.data.frame),
-#                   pd = purrr::map(data, select, {{ lon }}, {{ lat }} ),
-#                   pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = type, coordNames = cd)),
-#                   # or?
-#                   # assume last step (currently NA) is the same as the second last step
-#                   pd = purrr::map(pd, fill, step))
-#   return(d)
-#   
-# }
-
-
-
 #' Fit Gaussian mixture model on vessel speed
 #'
 #' @param d A data frame with xx
@@ -101,7 +79,6 @@ rb_gaussian <- function(d, vid, time, lon, lat, mu = c(1,4,8), sigma = c(1,1,1),
 }
 
 
-# NOTE: ONLY TESTED USING UTM
 #' Hidden Markov model with step only
 #'
 #' @param d A data frame with xx
@@ -110,7 +87,7 @@ rb_gaussian <- function(d, vid, time, lon, lat, mu = c(1,4,8), sigma = c(1,1,1),
 #' @return A tibble
 #' @export
 #'
-rb_hidden_markov_step <- function(d, vid, time, x, y,  mu = c(20, 150, 300), sigma =c(20, 20, 20), minimal = TRUE) {
+rb_hidden_markov_step <- function(d, vid, time, lon, lat,  mu = c(20, 150, 300), sigma =c(20, 20, 20), minimal = TRUE) {
   
   # Note: These functions should likely not be hardwired in the function call
   
@@ -124,14 +101,18 @@ rb_hidden_markov_step <- function(d, vid, time, x, y,  mu = c(20, 150, 300), sig
                     verbose = 0, stepDist = "gamma", angleDist = "none")
   }
   
+  cd <- c(deparse(substitute(lon)), deparse(substitute(lat)))
+  type <- ifelse(any(cd %in% "x"), "UTM", "LL")
+  mult <- ifelse(type == "UTM", 1, 1000)
+  
   d <- 
     d %>% 
     tidyr::nest(data = -c( vid )) %>%
     # if already grouped, this suffices
     #tidyr::nest() %>% 
     dplyr::mutate(data = purrr::map(data, as.data.frame),
-                  pd = purrr::map(data, select, {{ x }}, {{ y }}),
-                  pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = "UTM", coordNames = c("x", "y"))),
+                  pd = purrr::map(data, select, {{ lon }}, {{ lat }}),
+                  pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = type, coordNames = cd)),
                   # or?
                   # assume last step (currently NA) is the same as the second last step
                   pd = purrr::map(pd, fill, step)) %>% 
@@ -163,7 +144,7 @@ rb_hidden_markov_step <- function(d, vid, time, x, y,  mu = c(20, 150, 300), sig
 #' @return A tibble
 #' @export
 #'
-rb_hidden_markov_step_and_turn <- function(d, vid, time, x, y,  mu = c(20, 150, 300), sigma =c(20, 20, 20), minimal = TRUE) {
+rb_hidden_markov_step_and_turn <- function(d, vid, time, lon, lat,  mu = c(20, 150, 300), sigma =c(20, 20, 20), minimal = TRUE) {
   
   # Note: These functions should likely not be hardwired in the function call
   
@@ -183,14 +164,18 @@ rb_hidden_markov_step_and_turn <- function(d, vid, time, x, y,  mu = c(20, 150, 
                     anglePar0 = anglePar0)
   }
   
+  cd <- c(deparse(substitute(lon)), deparse(substitute(lat)))
+  type <- ifelse(any(cd %in% "x"), "UTM", "LL")
+  mult <- ifelse(type == "UTM", 1, 1000)
+  
   d <- 
     d %>% 
     tidyr::nest(data = -c( vid )) %>%
     # if already grouped, this suffices
     #tidyr::nest() %>% 
     dplyr::mutate(data = purrr::map(data, as.data.frame),
-                  pd = purrr::map(data, select, {{ x }}, {{ y }}),
-                  pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = "UTM", coordNames = c("x", "y"))),
+                  pd = purrr::map(data, select, {{ lon }}, {{ lat }}),
+                  pd = purrr::map(pd, function(x) moveHMM::prepData(x, type = type, coordNames = cd)),
                   # or?
                   # assume last step (currently NA) is the same as the second last step
                   pd = purrr::map(pd, fill, step)) %>% 
