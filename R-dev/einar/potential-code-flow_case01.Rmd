@@ -20,7 +20,6 @@ source("R/ramb_functions.R")
 source("R-dev/einar/ramb_functions2.R")
 ```
 
-
 Tend to like short-names (less typing donwstream):
 ```
 vid:  vessel id
@@ -196,17 +195,14 @@ p.base <-
 ```{r}
 d2 <- 
   d %>% 
-  rb_gaussian(vid, lon, lat, minimal = FALSE) %>% 
-  select(-md) %>% 
-  unnest(c(data, pd)) %>% 
-  rename(speed = .speed) %>%
-  mutate(Fishing = ifelse(speed <= threshold.upper, TRUE, FALSE))
+  rb_gaussian(vid, lon, lat) %>% 
+  mutate(Fishing = ifelse(.speed <= threshold.upper, TRUE, FALSE))
 d2 %>%
   count(behaviour, Fishing) %>%
   spread(Fishing, n) %>%
   knitr::kable()
 d2 %>%
-  ggplot(aes(speed, fill = Fishing)) +
+  ggplot(aes(.speed, fill = Fishing)) +
   geom_histogram(binwidth = 0.1) +
   facet_wrap(~ vid, scales = "free_y") +
   theme(legend.position = c(0.8, 0.2)) +
@@ -214,7 +210,7 @@ d2 %>%
   labs(x = "Speed [kt]", y = "Pings")
 p.base +
   geom_point(data = d2,
-             aes(time, speed, colour = Fishing),
+             aes(time, .speed, colour = Fishing),
              size = 0.5) +
   scale_colour_brewer(palette = "Set1") +
   labs(x = "Time", y = "Speed [kt]") +

@@ -89,7 +89,9 @@ rb_gaussian <- function(d, vid, lon, lat, minimal = TRUE, cs = 1.96) {
   
   if(minimal) {
     d %>%
-      dplyr::select( {{vid}} , threshold = threshold.upper) %>%
+      select(-md) %>% 
+      unnest(c(data, pd)) %>% 
+      rename(.speed = ) %>%
       return()
   } else {
     return(d)
