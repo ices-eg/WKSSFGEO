@@ -4,21 +4,26 @@
 #  development, future of it unknown. It is kind of me rambling
 #  without clear direction or purpose :-)
 
-#' Define trip
+#' rb_define_trip
 #' 
 #' Calculates a unique identifier for a change in event. Normally applied via
 #' pipeflow within dplyr::mutate.
 #'
-#' @param vid vector, e.g. containing vessel id
-#' @param hid vector, e.g. containing harbour id, value assumed NA or zero if out of harbour
+#' @param vid a vector, e.g. containing vessel id. But it could be anything (think of it just as x)
+#' @param hid a vector, e.g. containing harbour id, value assumed NA or zero if out of harbour. But it could be anything (think of it just as y)
 #'
 #' @return A vector containing unique integer, negative if in harbour, positive if 
 #' out of harbour
+#' 
+#' @source Einar Hjörleifsson
+#' 
 #' @export
 #'
 #' @examples
-#' tibble::tibble(vid = c(1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
-#'                hid = c(NA, NA, 202, NA, NA, 202, 202, 202, NA, NA, NA, NA, NA, NA, NA, NA, 202)) %>% 
+#' tibble::tibble(vid = c(1, 1, 1, 1, 1, 1, 1, 
+#'                        2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
+#'                hid = c(NA, NA, 202, NA, NA, 202, 202, 
+#'                        202, NA, NA, NA, NA, NA, NA, NA, NA, 202)) %>% 
 #'   dplyr::mutate(tid = rb_define_trips(vid, hid))
 rb_define_trips <- function(vid = vid, hid = hid) {
   tibble::tibble(vid = {{ vid }},
@@ -29,34 +34,37 @@ rb_define_trips <- function(vid = vid, hid = hid) {
     dplyr::group_by( vid, inharbour) %>% 
     dplyr::mutate(tid = data.table::rleid(.gr0)) %>% 
     dplyr::ungroup() %>% 
-    dplyr::mutate(tid = ifelse(inharbour, -tid, tid)) %>% 
+    dplyr::mutate(tid = as.integer(ifelse(inharbour, -tid, tid))) %>% 
     dplyr::pull(tid)
 }
-
 
 # plagarized from the geo-package that is not on cran
 #' rb_acdist
 #' 
-#' Computes APPROXIMATE distances between lat/lon data points.
+#' Computes APPROXIMATE distances between lat/lon data points
 #'
-#' @param lat Latitude of first coordinate or list with lat, lon of first coordinate.
 #' @param lon Longitude of first coordinate or list with lat, lon of second coordinate.
-#' @param lat1 If lat and lon are vectors of lat,lon positions, then lat1 and lon1 must be given as the second set of positions.
+#' @param lat Latitude of first coordinate or list with lat, lon of first coordinate.
 #' @param lon1 If lat and lon are vectors of lat,lon positions, then lat1 and lon1 must be given as the second set of positions.
+#' @param lat1 If lat and lon are vectors of lat,lon positions, then lat1 and lon1 must be given as the second set of positions.
 #' @param scale "nmi" (default) returns value in nautical miles, any other value in kilometers
 #'
 #' @return A single vector of distances between pairs of points
 #' @export
+#' 
+#' @source Einar Hjörleifsson
 #'
 #' @examples
 #' 
-#' rb_arcdist(65.0, -24.0, 66.0, -24.0, "nmi") # Input in vector format.
+#' rb_arcdist(-24.0, 65.0, -24.0, 66.0, "nmi") # Input in vector format.
 #' # works with group_by
-#' tibble::tibble(vid = c(1, 1, 1, 2, 2), lon = c(64.1, 64.2, 64.3, 64.5, 64.6), lat = c(-24, -24.5, -25, -25.5, -26)) %>% 
+#' tibble::tibble(vid = c(1, 1, 1, 2, 2), 
+#'                lon = c(-24, -24.5, -25, -25.5, -26), 
+#'                lat = c(64.1, 64.2, 64.3, 64.5, 64.6)) %>% 
 #'   dplyr::group_by(vid) %>% 
-#'   dplyr::mutate(sd = rb_arcdist(lat, lon, dplyr::lead(lat), dplyr::lead(lon)))
+#'   dplyr::mutate(sd = rb_arcdist(lon, lat, dplyr::lead(lon), dplyr::lead(lat)))
 
-rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
+rb_arcdist <- function (lon, lat, lon1 = NULL, lat1 = NULL, scale = "nmi") {
   if (is.null(lat1)) {
     lat1 <- lon$lat
     lon1 <- lon$lon
@@ -74,7 +82,7 @@ rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
                                                                      mult2 * lon1)))
 }
 
-#' ms2kn
+#' rb_ms2kn
 #'
 #' meters per second to knots for those of us that forget the convertion number
 #' 
@@ -82,12 +90,16 @@ rb_arcdist <- function (lat, lon, lat1 = NULL, lon1 = NULL, scale = "nmi") {
 #'
 #' @return A vector, speed in knots (nautical miles per hour)
 #' @export
+#' 
+#' @source Einar Hjörleifsson
 #'
-ms2kn <- function(x) {
+#' @examples
+#' rb_ms2kn(0:8)
+rb_ms2kn <- function(x) {
   x * 1.94384449
 }
 
-#' kn2ms
+#' rb_kn2ms
 #'
 #' knots to meters per second for those of us that forget the convertion number
 #' 
@@ -95,8 +107,12 @@ ms2kn <- function(x) {
 #'
 #' @return A vector, speed in meters per second
 #' @export
+#' 
+#' @source Einar Hjörleifsson
 #'
-kn2ms <- function(x) {
+#' @examples
+#' rb_kn2ms(seq(0, 16, by = 2))
+rb_kn2ms <- function(x) {
   x / 1.94384449
 }
 
@@ -109,8 +125,10 @@ kn2ms <- function(x) {
 #'
 #' @return A numerical vector that labels each "discreet" event
 #' @export
+#' 
+#' @source Einar Hjörleifsson
 #'
-#' @example
+#' @examples
 #' tibble::tibble(vid = c(rep(1, 10), rep(2, 10)),
 #' behaviour = c(rep("steaming", 4), rep("fishing", 4), rep("steaming", 2),
 #'               rep("harbour", 2), rep("steaming", 2), rep("fishing", 6))) %>% 
@@ -124,7 +142,7 @@ rb_event <- function(x) {
 
 
 rb_speed <- function(time, lon, lat) {
-  (rb_arcdist(lat, lon, lead(lat), lead(lon), scale = "km") * 1e3) /
+  (rb_arcdist(lon, lat, lead(lon), lead(lat), scale = "km") * 1e3) /
     as.numeric(difftime(lead(time), time, units = "sec")) %>% 
-    ms2kn()
+    rb_ms2kn()
 }

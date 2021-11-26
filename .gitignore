@@ -6,3 +6,11 @@
 *.html
 docs
 inst/doc
+DESCRIPTION
+NAMESPACE
+man
+vignettes
+_pkgdown.yml
+R/imports.R
+einarhj_webupdate.R
+

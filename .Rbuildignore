@@ -1,2 +1,12 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$
+^code_example
+^R-dev
+^data-examples
+^prepare_data_WKSSFGEO.Rmd
+^remains
+^einarhj_webupdate.R
