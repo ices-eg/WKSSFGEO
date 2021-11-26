@@ -17,7 +17,7 @@ library(sf)
 library(lubridate)
 library(tidyverse)
 source("R/ramb_functions.R")
-source("R-dev/einar/models.R")
+source("R-dev/einar/ramb_functions2.R")
 ```
 
 
