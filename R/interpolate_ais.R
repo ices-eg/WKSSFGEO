@@ -13,7 +13,6 @@
 #' @return a gps dataset that has added the interpolated points
 #' @export
 #'
-#' @examples
 interpolate_ais <- function(x, headingAdjustment = 0, min_gap = 2, max_gap = 120,
                             source = "AIS"){
   #add required packages
