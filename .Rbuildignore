@@ -7,6 +7,8 @@
 ^code_example
 ^R-dev
 ^data-examples
+^data-raw
 ^prepare_data_WKSSFGEO.Rmd
 ^remains
+^data/*.rds
 ^einarhj_webupdate.R
