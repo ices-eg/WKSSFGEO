@@ -13,4 +13,7 @@ vignettes
 _pkgdown.yml
 R/imports.R
 einarhj_webupdate.R
-
+R-dev/einar/older
+data-raw
+R/data.R
+data/*.rda
