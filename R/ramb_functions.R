@@ -81,45 +81,6 @@ rb_arcdist <- function (lon, lat, lon1 = NULL, lat1 = NULL, scale = "nmi") {
                                                                      mult2 * lon1)))
 }
 
-#' @title rb_sd
-#' 
-#' @description Calculate distance to next point. Insired by traipse::track_distance but 
-#' allows to pass more arguement to geodist::geodist. Also the default 
-#' is to calculate the distance to next point, not distance from previous
-#' point.
-#' 
-#' @note Why not use geodist::geodist directly? Because it does return a vector 
-#' which is length one less than the orginal vector length (because NA's are
-#' dropped). And that produces an error if one uses the tidyverse flow.
-#'
-#' @param x longitude
-#' @param y latitude
-#' @param to Boolean (default TRUE) then calculation is distance to next point, 
-#' hence last point will be NA.
-#' @param measure One of "haversine" (default), "vincenty", "geodesic", or "cheap" 
-#' specifying desired method of geodesic distance calculation, see help for 
-#' geodist::geodist.
-#'
-#' @return A vector distance in meters.
-#' @export
-#'
-#' @examples
-#' rb_sd(c(-24, -24), c(65.0001, 65.0002))
-#' 
-rb_sd <- function (x, y, to = TRUE, measure = "geodesic") 
-{
-  x <- 
-    geodist::geodist(cbind(x, y), sequential = TRUE, 
-                     measure = measure)
-  if(to) {
-    x <- c(x, NA_real_)
-  } else {
-    x <- c(NA_real_, x)
-  }
-  return(x)
-}
-
-
 #' rb_ms2kn
 #'
 #' meters per second to knots for those of us that forget the convertion number
