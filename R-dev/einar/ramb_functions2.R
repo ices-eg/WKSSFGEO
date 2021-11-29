@@ -24,7 +24,7 @@ rb_gaussian_binary_clustering <- function(d, vid, time, lon, lat, cs = 1.96, min
     d %>% 
       dplyr::select( {{ vid }}, data, rt) %>%
       tidyr::unnest(c(data, rt)) %>%
-      dplyr::mutate(.speed = ms2kn(.speed)) %>%
+      dplyr::mutate(.speed = rb_ms2kn(.speed)) %>%
       dplyr::ungroup() %>% 
       return()
   } else {
@@ -62,7 +62,7 @@ rb_gaussian <- function(d, vid, time, lon, lat, mu = c(1,4,8), sigma = c(1,1,1),
                   pd = purrr::map(pd, dplyr::select, step, angle, {{ time }} ),
                   pd = purrr::map(pd, dplyr::mutate, .dura = as.numeric(difftime(lead( {{ time }} ), {{ time }}, units = "sec"))),
                   pd = purrr::map(pd, fill, .dura),
-                  pd = purrr::map(pd, dplyr::mutate, .speed = ms2kn(step * mult / .dura)),
+                  pd = purrr::map(pd, dplyr::mutate, .speed = rb_ms2kn(step * mult / .dura)),
                   pd = purrr::map(pd, dplyr::select, -time),
                   md = purrr::map(pd, function(x) mixtools::normalmixEM(x$.speed, mu = mu, sigma = sigma)),
                   threshold.lower = purrr::map_dbl(md, function(x) x$mu[1] - cs * x$sigma[1]),
