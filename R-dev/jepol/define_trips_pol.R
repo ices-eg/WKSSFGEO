@@ -88,7 +88,7 @@ trip <- trip[duration_hours > min_dur]
 if(split_trips == T)
   while (any(trip$duration_hours > max_dur)) {
     tls <- trip[duration_hours > max_dur][1,]
-    cutp2 <- dss[time_stamp >= tls$depart & time_stamp <= tls$return][base::which.max(INTV[2:.N])]$id
+    cutp2 <- dss[time_stamp > tls$depart & time_stamp < tls$return][base::which.max(INTV[2:.N])]$id
     
     if(dss[id == cutp2]$INTV < 3){
       trip[trip_id2 == tls$trip_id2, duration_hours := max_dur]
