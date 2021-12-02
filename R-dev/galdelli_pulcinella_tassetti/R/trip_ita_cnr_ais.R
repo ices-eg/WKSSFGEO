@@ -56,6 +56,9 @@ source("R/global_functions.R")
 # this is the list of harbours available https://github.com/MAPSirbim/AIS_data_processing
 # we add some columns that are required for the workflow
 ports<-readRDS("maps/harbours/ices_med_harbours.rData") 
+# rename the area column in GSA
+ports <- ports %>%
+  dplyr:::rename("GSA" = "area")
 st_crs(ports) <- 4326
 port_buf<-st_buffer(ports, 0.001) # create a buffer
 st_crs(port_buf) <- 4326   # set crs
