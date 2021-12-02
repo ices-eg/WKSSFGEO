@@ -4,8 +4,8 @@
 # ---------------------------------------------------------------------------
 # Description:
 # Apply R4AIS v1.0.1 external data to identify individual fishing trips.
-# The workflow require external layer that are loaded via source file: global_functions.R
-# Currently, to run the workflow in easy way it is convenient to load the R project in the folder.
+# The workflow require functions that are loaded via source file: global_functions.R
+# Spatial layer are directly load in the workflow.
 # ---------------------------------------------------------------------------
 
 
