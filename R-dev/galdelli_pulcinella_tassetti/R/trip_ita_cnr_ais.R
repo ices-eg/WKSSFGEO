@@ -15,6 +15,16 @@
 # setwd to 
 # https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti
 # Currently, the workflow was tested on the data available in  "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/data-examples/example_data_AIS.csv". 
+# To run the workflow the input dataset should have:
+# lon/lat,
+# MMSI (vessel id)
+# datetime (timestamp yyyy-mm-dd hh:mm:ss)
+# speed
+# The external layer required are:
+# coastal_ban_zone - polygon of the 3nm buffer of the coast
+# ports - polygons of the harbours with the following attributes:
+# harbour (the name of the harbour)
+# GSA: the name of the area
 
 # General settings ----
 rm(list=ls(all=FALSE))
