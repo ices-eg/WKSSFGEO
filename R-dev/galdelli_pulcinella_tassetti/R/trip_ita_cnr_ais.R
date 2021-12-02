@@ -14,6 +14,7 @@
 #Notes:
 # setwd to 
 # https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti
+# Currently, the workflow was tested on the data available in  "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/data-examples/example_data_AIS.csv". 
 
 # General settings ----
 rm(list=ls(all=FALSE))
@@ -63,16 +64,6 @@ st_crs(port_buf) <- 4326   # set crs
 # the coastal ban zone was manually estimated as a buffer of 3nm for some northern EU countries
 coastal_ban_zone=read_sf("/maps/coastal_ban_zone/nord_eu_ban.shp") # import managment depth layer
 st_crs(coastal_ban_zone) <- 4326  # set crs
-
-## import grid for fishing effort
-# grid<-read_sf(file.path(dirmaps, "grid01degrees"))
-# grid$grid_id=seq(1:nrow(grid))
-# st_crs(grid)=wgs # set crs
-
-## download baselayer from natural earth
-worldmap <- rnaturalearth::ne_countries(scale='medium', type='map_units',   returnclass='sf')
-# import the map of land (need rnaturalearth library)
-worldmap <- worldmap[,c("name_long", "geometry")]
 
 ## load the parameters required in the classficiation ----
 # centroids: cetroids od kmeans and dbscann
