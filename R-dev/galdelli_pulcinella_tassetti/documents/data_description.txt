@@ -1,0 +1,9 @@
+- data folder
+  -centroids (.csv): centroids for k-means algorithms
+  -datatest (.csv): dataset for demo run
+  -parameters (.csv): contains parameters for classification algorithms, and time lag to identify trasmission gaps
+
+- maps folder
+  - coastal_ban_zone (.shp):  shapefile of the zone where the use of towed gears is prohibited
+  - grid01degrees (.shp): graticule of 0.1° covering the Mediterranean Sea
+  - med_harb_gsa (.shp): shapefile of harbours in the Mediterranean Sea
