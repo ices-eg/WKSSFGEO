@@ -49,7 +49,7 @@ port_buf<-st_buffer(ports, 0.001) # create a buffer
 st_crs(port_buf) <- 4326   # set crs
 ## import coastal ban zone
 # the coastal ban zone was manually estimated as a buffer of 3nm for some northern EU countries
-coastal_ban_zone=read_sf("/home/tekno/Scrivania/AIS/AIS/maps/world/nord_eu_ban.shp") # import managment depth layer
+coastal_ban_zone=read_sf("/maps/coastal_ban_zone/nord_eu_ban.shp") # import managment depth layer
 st_crs(coastal_ban_zone) <- 4326  # set crs
 ## import grid for fishing effort
 # Currently, it was load at the start of the workflow and it. 
