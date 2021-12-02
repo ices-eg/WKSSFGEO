@@ -1,0 +1,11 @@
+variable,value,comment
+timepar,30,# minimum distance (minutes) between points to individuate a transmisison gap
+ratio_otb,0.5,# threshold for classification of gear OTB
+ratio_tbb,0.5,# threshold for classification of gear TBB
+ratio_ptm,0.5,# threshold for classification of gear PTM
+l_segm,25,# maximum number of pings within PTM tracks
+n_boats_ptm,20,# argument for dbscan, minimum number of points for PTM clusters
+range_ptm,0.02,# argument for dbscan, size of the neighborhood area for PTM
+n_boats_ps,15,# argument for dbscan, minimum number of points for PS clusters
+range_ps,0.01,# argument for dbscan, size of the neighborhood area for PS
+size_ps,1000,# number of points for PS trips
