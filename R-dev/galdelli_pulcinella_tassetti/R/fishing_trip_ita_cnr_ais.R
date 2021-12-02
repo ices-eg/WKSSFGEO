@@ -1,5 +1,5 @@
 # File: fishing_trip_ita_cnr_ais.R
-# Author: Pulcinella Jacopo 
+# Author: Pulcinella Jacopo, Galdelli Alessandro
 # Template Created: Wed Dec 02 2021
 # ---------------------------------------------------------------------------
 # Description:
