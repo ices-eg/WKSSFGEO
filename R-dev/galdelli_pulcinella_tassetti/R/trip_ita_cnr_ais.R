@@ -1,6 +1,6 @@
 #HEADER ------------------------------------------------
 #
-#Author: Jacopo Pulcinella
+#Author: Jacopo Pulcinella, Galdelli Alessandro
 #Email: jacopo.pulcinella@irbim.cnr.it
 #
 #Date: 2021-12-02
