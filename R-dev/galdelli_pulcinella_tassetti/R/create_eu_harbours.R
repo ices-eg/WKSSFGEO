@@ -3,8 +3,8 @@
 # Template Created: Wed Dec 02 2021
 # ---------------------------------------------------------------------------
 # Description:
-# Create a single shp of European harbours, as available in WKSSFGEO repo: https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/data
-# and the Italian CNR repo: https://github.com/MAPSirbim/AIS_data_processing/tree/main/maps/med_harb_gsa
+# Create a single shp of European harbours, as available in the WKSSFGEO repo: https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/data
+# and in the Italian CNR repo: https://github.com/MAPSirbim/AIS_data_processing/tree/main/maps/med_harb_gsa
 # ---------------------------------------------------------------------------
 
 library(sf)
