@@ -86,13 +86,24 @@ pars=inport_parameters(file.path(file_parameters), file.path(file_centroids))[[1
 
 ## Application on single vessel data ----
 # Download example file
+# AIS
 githubURL1 <- "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/data-examples/example_data_AIS.csv"
-dat <- readr::read_csv(githubURL1)
+dat <- read.csv(githubURL1)
 dat
 all_dat<-as.data.frame(dat) %>%
   mutate(datetime = time_stamp, MMSI = vessel_id, longitude = lon, latitude = lat) 
 all_dat<-all_dat[,c("MMSI", "datetime", "longitude", "latitude", "speed")] # select fields of interest
-vessels <-"EX_1"
+vessels <-"EX_1" 
+
+# GPS
+githubURL2 <- "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/dev_branch/data-examples/example_data_GPS.csv"
+dat <- read.csv(githubURL2)
+dat
+all_dat<-as.data.frame(dat) %>%
+  mutate(datetime = time, MMSI = vessel_id, longitude = lon, latitude = lat) 
+all_dat<-all_dat[,c("MMSI", "datetime", "longitude", "latitude", "speed")]
+vessels <-"id_Ben" 
+
 dat=all_dat[which(all_dat$MMSI == vessels),] 
 
 # Fishing trip 
