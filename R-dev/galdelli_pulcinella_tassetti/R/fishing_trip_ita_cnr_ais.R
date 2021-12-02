@@ -43,10 +43,8 @@ source("R/global_functions.R")
 ## import list of ports 
 # this is the list of harbours available https://github.com/MAPSirbim/AIS_data_processing
 # we add some columns that are required for the workflow
-ports<-readRDS("/home/tekno/Scrivania/repositories/wgssfgeo/harbours.rds") 
-st_crs(ports) <- 4326  
-ports = ports %>%
-  mutate(Country = "DNK", harbour = as.character(1:nrow(ports)), GSA =  as.character(1:nrow(ports)))
+ports<-readRDS("maps/harbours/ices_med_harbours.rData") 
+st_crs(ports) <- 4326
 port_buf<-st_buffer(ports, 0.001) # create a buffer
 st_crs(port_buf) <- 4326   # set crs
 ## import coastal ban zone
