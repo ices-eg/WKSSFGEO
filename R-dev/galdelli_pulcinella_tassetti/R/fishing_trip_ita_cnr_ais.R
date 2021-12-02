@@ -1,4 +1,4 @@
-# File: create_eu_harbours.R
+# File: fishing_trip_ita_cnr_ais.R
 # Author: Pulcinella Jacopo 
 # Template Created: Wed Dec 02 2021
 # ---------------------------------------------------------------------------
