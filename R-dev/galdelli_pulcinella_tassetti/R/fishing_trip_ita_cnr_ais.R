@@ -3,7 +3,7 @@
 # Template Created: Wed Dec 02 2021
 # ---------------------------------------------------------------------------
 # Description:
-# Apply R4AIS v1.0.1 (10.5281/zenodo.4757505) external data to identify individual fishing trips.
+# Apply R4AIS v1.0.1 (10.5281/zenodo.4757505) to external data to identify individual fishing trips.
 # The workflow require functions that are loaded via source file: global_functions.R
 # Spatial layer are directly load in the workflow.
 # ---------------------------------------------------------------------------
