@@ -32,6 +32,7 @@ rm(list=ls(all=FALSE))
 #options(digits=3) 
 options(dplyr.summarise.inform=FALSE)
 options("pbapply.pb"="txt")
+sf::sf_use_s2(FALSE)
 
 setwd("..")
 mydir=getwd()
