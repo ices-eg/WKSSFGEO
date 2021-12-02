@@ -15,7 +15,7 @@
 # setwd to 
 # https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti
 # Currently, the workflow was tested on the data available in  "https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/data-examples/example_data_AIS.csv". 
-# To run the workflow the input dataset should have:
+# To run the workflow the input dataset should have the following mandatory fields:
 # lon/lat,
 # MMSI (vessel id)
 # datetime (timestamp yyyy-mm-dd hh:mm:ss)
@@ -92,8 +92,8 @@ dat
 all_dat<-as.data.frame(dat) %>%
   mutate(datetime = time_stamp, MMSI = vessel_id, longitude = lon, latitude = lat) 
 all_dat<-all_dat[,c("MMSI", "datetime", "longitude", "latitude", "speed")] # select fields of interest
-vessels <-"EX_1" # Select a vessel. In the released sample there are OTB1, TBB1, PTM1, PS1 and OTHER1. 
-dat=all_dat[which(all_dat$MMSI == vessels),] # select a vessel. In the released sample there are OTB1, TBB1, PTM1, PS1 and OTHER1.
+vessels <-"EX_1"
+dat=all_dat[which(all_dat$MMSI == vessels),] 
 
 # Fishing trip 
 # The create_fishing_trip function allows to identify the starting and the ending point of all fishing trips performed by a vessel, 
