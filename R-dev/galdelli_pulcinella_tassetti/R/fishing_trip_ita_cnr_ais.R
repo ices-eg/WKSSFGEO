@@ -40,6 +40,7 @@ source("R/global_functions.R")
 # load and arrange spatial layers required in the next analyses ----
 ## import list of ports 
 # this is the list of harbours available https://github.com/MAPSirbim/AIS_data_processing
+# we add some columns that are required for the workflow
 ports<-readRDS("/home/tekno/Scrivania/repositories/wgssfgeo/harbours.rds") 
 st_crs(ports) <- 4326  
 ports = ports %>%
