@@ -11,9 +11,11 @@
 
 # General settings ----
 rm(list=ls(all=FALSE))
+
 #options(digits=3) 
 options(dplyr.summarise.inform=FALSE)
 options("pbapply.pb"="txt")
+
 # Working directory should point to the repository folder https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti
 setwd("..")
 mydir=getwd()
@@ -21,8 +23,10 @@ mydir=getwd()
 # Required File names ----
 # path of the maps directory
 dirmaps="maps" 
+
 # import parameter table
 file_parameters="data/parameters.csv" 
+
 # import centroids 
 file_centroids="data/centroids.csv" 
 outdir="results"
@@ -30,8 +34,10 @@ outdir="results"
 # User settings for the analysis ----
 # Insert your coordinates system
 wgs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+
 # set to TRUE if want to allow automatic installation of missing packages.
 install.missing.packages=T 
+
 # set to TRUE to require table with results in output file 
 write.output=T 
 
@@ -47,15 +53,17 @@ ports<-readRDS("maps/harbours/ices_med_harbours.rData")
 st_crs(ports) <- 4326
 port_buf<-st_buffer(ports, 0.001) # create a buffer
 st_crs(port_buf) <- 4326   # set crs
+
 ## import coastal ban zone
 # the coastal ban zone was manually estimated as a buffer of 3nm for some northern EU countries
 coastal_ban_zone=read_sf("/maps/coastal_ban_zone/nord_eu_ban.shp") # import managment depth layer
 st_crs(coastal_ban_zone) <- 4326  # set crs
+
 ## import grid for fishing effort
-# Currently, it was load at the start of the workflow and it. 
-# grid<-read_sf(file.path(dirmaps, "grid01degrees")) # import a grid
-# grid$grid_id=seq(1:nrow(grid)) # create cell grid id
+# grid<-read_sf(file.path(dirmaps, "grid01degrees"))
+# grid$grid_id=seq(1:nrow(grid))
 # st_crs(grid)=wgs # set crs
+
 ## download baselayer from natural earth
 worldmap <- rnaturalearth::ne_countries(scale='medium', type='map_units',   returnclass='sf')
 # import the map of land (need rnaturalearth library)
@@ -81,7 +89,6 @@ dat=all_dat[which(all_dat$MMSI == vessels),] # select a vessel. In the released 
 # Fishing trip 
 # The create_fishing_trip function allows to identify the starting and the ending point of all fishing trips performed by a vessel, 
 # as well as information regarding the port of departure and of arrival (harbor name, country and statistical area).
-
 dat_trip=create_fishing_trip(data=dat,
                              ports=ports, 
                              ports_buffer=port_buf,
