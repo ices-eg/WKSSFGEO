@@ -4,6 +4,7 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(install.missing.packages==T){
   if(length(new.packages)) install.packages(new.packages)
 }
+
 library(readxl)
 library(sf)
 library(parallel)
@@ -17,6 +18,9 @@ library(pbapply)
 library(lubridate)
 library(data.table)
 library(viridis)
+library(curl)
+library(dplyr)
+
 "%ni%"=Negate('%in%')
 classification_RF=readRDS("R/RF_gear_release_v2.rds")
 ###--- Assign ping to trip ####
