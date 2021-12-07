@@ -1,3 +1,19 @@
+#HEADER ------------------------------------------------
+#
+#Author: Alessandro Galdelli, Anna Nora Tassetti, Enrico Armelloni, Jacopo Pulcinella
+#Email: a.galdelli@univpm.it
+#
+#Date: 2021-12-06
+#
+#Script Name: global_functions.R
+#
+#Script Description:
+#
+#
+#Notes:
+#
+#
+
 ##--- Libraries and data ####
 list.of.packages <- c("readxl" , "viridis", "randomForest" , "sf", "testit", "dbscan", "pracma", "parallel", "caret", "plyr","pbapply", "lubridate", "data.table")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -27,31 +43,41 @@ classification_RF=readRDS("R/RF_gear_release_v2.rds")
 ###--- Assign ping to trip ####
 # This function paste the information from the fishing trip (id of the trip) to the initial dataset. Points that does not fall within a trip are removed
 assign_trip = function(data, trip_table){
-  
+
   if("datetime" %in% colnames(data)){
-    data$datetime = as.POSIXct(data$datetime, 
-                               format='%Y-%m-%d %H:%M:%S', 
+    data$datetime = as.POSIXct(data$datetime,
+                               format='%Y-%m-%d %H:%M:%S',
                                tz="UTC")
     datatest = data[order(data$datetime), ]
   }else{
-    data$datetime = as.POSIXct(paste(data$date, data$time), 
-                               format='%Y-%m-%d %H:%M:%S', 
+    data$datetime = as.POSIXct(paste(data$date, data$time),
+                               format='%Y-%m-%d %H:%M:%S',
                                tz="UTC")
     datatest = data[order(data$datetime), ]
   }
-  
+
   datatest$trip = NA
   for(kk in 1:nrow(trip_table)){
     xx =  trip_table[kk,]
     ref = which(datatest$datetime >= xx$start_timestamp & datatest$datetime <= xx$end_timestamp)
     datatest$trip[ref] = xx$trip
-    }
+  }
   datatest=datatest[!is.na(datatest$trip),]
-  return(datatest) 
+  return(datatest)
 }
 
 ###--- Build trip ####
-# This function assemble and format the output of the fishing trip table result.
+#' This function assemble and format the output of the fishing trip table result.
+#'
+#' @param data: AIS positions
+#' @param index: header specifying the iteration
+#' @param xstart: indicates the id of the first point of the trip
+#' @param xpos: indicates the offset to be imposed on xstart
+#' @param index2: header specifying the id of the fishing trip to be assembled
+#' @param ports_buffer: 0.001° buffer of the ports layer
+#' @param ports: ports layer
+#'
+#'
 build_trip=function(data, index, xstart, xpos, index2, ports_buffer, ports){
   startid = data[data$rowid == xstart, "rowid"]
   endid   = data[ index-1, "rowid"]
@@ -70,21 +96,37 @@ build_trip=function(data, index, xstart, xpos, index2, ports_buffer, ports){
   mmsi = data[data$rowid == xstart , "MMSI"]
   joined = 0
   trip = index2
-  xtrip = data.frame(mmsi, trip, startid, endid , startdata, starttime, 
-                     enddata, endtime, departure, country_departure, gsa_departure, 
+  xtrip = data.frame(mmsi, trip, startid, endid , startdata, starttime,
+                     enddata, endtime, departure, country_departure, gsa_departure,
                      arrival, country_arrival , gsa_arrival , joined)
   return(xtrip)
 }
 
 
 ###--- Classification workflow ----
-# Description: classification workflow function applies the entire the data flow. Data are divided by fishing trips, to apply on each the "Core function" (described below). 
-# Results of the core functions are passed to the function "decision gear" (described below) to classify the vessel gear. 
-# Depending on this, data are processed to create fishing tracks or, for Purse seines, fishing operation centroids 
+# Description: classification workflow function applies the entire the data flow. Data are divided by fishing trips, to apply on each the "Core function" (described below).
+# Results of the core functions are passed to the function "decision gear" (described below) to classify the vessel gear.
+# Depending on this, data are processed to create fishing tracks or, for Purse seines, fishing operation centroids
+#'
+#' @param data: raw AIS data
+#' @param ports: .shp of the port locations
+#' @param ports_buffer: is the 1 km buffer calculated from the input ports .shp at the beginning of the workflow
+#' @param coastal_ban_zone: .shp of the zone where the use of towed gears is prohibited
+#' @param pars: object storing the parameter file
+#' @param coord_sys: coordinate reference system (e.g.: WGS 84)
+#' @param output.type: specify if the output will be the fishing tracks (argument: “tracks”) or the fishing points (argument: “points”)
+#' @param write.output
+#' @param output.name
+#'
+#' @return
+#'
+#' @examples
+#'
+#'
 classification_workflow=function(data, ports, ports_buffer, coastal_ban_zone, pars, coord_sys, output.type, write.output=F, output.name=F){
   # Divide data into fishing trips
   dat_trip=create_fishing_trip(data=data,
-                               ports=ports, 
+                               ports=ports,
                                ports_buffer = ports_buffer,
                                coastal_ban_zone = coastal_ban_zone)
   if(isempty(dat_trip)){
@@ -92,47 +134,47 @@ classification_workflow=function(data, ports, ports_buffer, coastal_ban_zone, pa
       # do not return nothing
     }else{
       if("datetime" %in% colnames(data)){
-        data$datetime = as.POSIXct(data$datetime, 
-                                   format='%Y-%m-%d %H:%M:%S', 
+        data$datetime = as.POSIXct(data$datetime,
+                                   format='%Y-%m-%d %H:%M:%S',
                                    tz="UTC")
         data = data[order(data$datetime), ]
       }else{
-        data$datetime = as.POSIXct(paste(data$date, data$time), 
-                                   format='%Y-%m-%d %H:%M:%S', 
+        data$datetime = as.POSIXct(paste(data$date, data$time),
+                                   format='%Y-%m-%d %H:%M:%S',
                                    tz="UTC")
         data = data[order(data$datetime), ]
       }
       results_table=data.frame(MMSI=unique(data$MMSI),datetime=data$datetme ,longitude=data$longitude,latitude=data$latitude,trip=NA, fishing=0, gear=NA)
       return(results_table)
     }
-    
+
   }else{
     # Assign fishing trip information to initial dataset
-    data=assign_trip(data=data, 
+    data=assign_trip(data=data,
                      trip_table = dat_trip)
-    
+
     # Split data and apply classifications algorithms
-    dat_classified=classification_wrapper(vessel_data = data, 
+    dat_classified=classification_wrapper(vessel_data = data,
                                           pars=pars,
                                           write.output = F)
-    
+
     # pass results to decision gear function to identify deployed gear
     gear=decision_gear(dat_classified[["classification_result"]])
     if(write.output ==T){
-      
+
       if(output.name!=FALSE){
-        
+
         outfile=output.name
-        
+
       }else{
-        
+
         xmmsi=unique(dat_classified[["classification_result"]]$MMSI)
         outfile=paste("classification_result",xmmsi,format(Sys.Date(),format="%B%d%Y"),sep="_")
       }
-      
+
       write.csv(dat_classified[["classification_result"]], paste0("results/", outfile ,".csv"), row.names = F)
     }
-    
+
     #identification of fishing points
     results_table=identify_fishing_points(data=dat_classified[["data_labelled"]], gear=gear,coord_sys=coord_sys)
     if(output.type=="tracks"){
@@ -140,30 +182,41 @@ classification_workflow=function(data, ports, ports_buffer, coastal_ban_zone, pa
       results_table=make_fishing_tracks(results_table, wgs, pars)
       return(results_table)
     }else{
-      
+
       return(results_table)
-      
+
     }
   }
-  
+
 }
 
 
 
 ###--- Classification wrapper ####
+#' Title
+#'
+#' @param vessel_data: raw AIS data with an additional column indexing the corresponding fishing trip
+#' @param pars: table of parameters required by the classification functions
+#' @param write.output: logical argument to store the data needed to train the Random Forest model
+#' @param output.name: logical argument, specify the name to be given to the output file
+#'
+#' @return
+#'
+#'
+#' @examples
 classification_wrapper=function(vessel_data, pars, write.output = F, output.name=F){
   start_month=aggregate(datetime~trip, vessel_data, function(x) month(min(x)))
   colnames(start_month)[ncol(start_month)] = "start_month"
   vessel_data=merge(vessel_data, start_month, by="trip")
   vessel_data=split(vessel_data, vessel_data$start_month)
   myres=lapply(vessel_data, function(xvessel_data){
-    
+
     trip_list = split(xvessel_data, xvessel_data$trip)
     trip_analysis=pblapply(trip_list, function(i){
       process_trip=core_function(i, pars)
       return(process_trip)
     })
-    
+
     ## extract results ##
     data_for_gear=do.call(rbind, lapply(trip_analysis, function(i){
       i=i[[1]]
@@ -173,26 +226,26 @@ classification_wrapper=function(vessel_data, pars, write.output = F, output.name
       i=i[[2]]
       return(i)
     }))
-    
+
     if(write.output ==T){
-      
+
       if(output.name!=FALSE){
-        
+
         outfile=output.name
-        
+
       }else{
-        
+
         xmmsi=unique(data_for_gear$MMSI)
         outfile=paste("classification_result",xmmsi,format(Sys.Date(),format="%B%d%Y"),sep="_")
       }
-      
+
       write.csv(data_for_gear, paste0("results/", outfile ,".csv"), row.names = F)
     }
-    
+
     xresult=list(classification_result=data_for_gear, data_labelled=data_for_points)
     return(xresult)
   })
-  
+
   data_for_gear=do.call(rbind, lapply(myres, function(i){
     i=i[[1]]
     return(i)
@@ -211,23 +264,33 @@ classification_wrapper=function(vessel_data, pars, write.output = F, output.name
 
 
 ###--- Check cluster----
-# This function analyze the speed profile of the points contained within a spatial cluster, and indicates if proportion of the point indicated by the target speed is above a specified threshold. 
+#' This function analyze the speed profile of the points contained within a spatial cluster, and indicates if proportion of the point indicated by the target speed is above a specified threshold.
+#'
+#'
+#' @param data: AIS positions with a column indexing the points belonging to spatial clusters and one indicating the cluster identified by the k-means for each point
+#' @param gear: target fishing gear. Accepted values are PTM, PS
+#' @param threshold: threshold to filter target speed data
+#' @param low_speed: indicates which is the cluster of the k-means referring to the target speed
+#'
+#' @return
+#'
+#' @examples
 check_cluster=function(data, gear, threshold, low_speed){
   xvar=paste0("cluster_", gear)
   data=data[!is.na(data[,xvar]),]
   if(nrow(data) > 0){
-    points_by_speed=aggregate(list(n=data$id_ping), 
-                              by=list(xcluster=data[,xvar] ,cluster=data$cluster), 
+    points_by_speed=aggregate(list(n=data$id_ping),
+                              by=list(xcluster=data[,xvar] ,cluster=data$cluster),
                               FUN=length)
-    points_by_cluster=aggregate(list(tot=points_by_speed$n), 
-                                by=list(xcluster=points_by_speed$xcluster), 
+    points_by_cluster=aggregate(list(tot=points_by_speed$n),
+                                by=list(xcluster=points_by_speed$xcluster),
                                 FUN=sum)
     summary_points=merge(points_by_speed, points_by_cluster, by="xcluster")
     summary_points=summary_points[summary_points$cluster %in% low_speed,]
     if(nrow(summary_points)>0){
       summary_points$perc=summary_points$n/summary_points$tot
-      summary_points=aggregate(list(perc=summary_points$perc), 
-                               by=list(summary_points$xcluster), 
+      summary_points=aggregate(list(perc=summary_points$perc),
+                               by=list(summary_points$xcluster),
                                FUN=sum)
       summary_points=summary_points[summary_points$perc > threshold,]
     }else{
@@ -240,11 +303,17 @@ check_cluster=function(data, gear, threshold, low_speed){
 }
 
 ###--- Classify ####
-# this function identify the size of each track
+# This function identify the size of each track
+#'
+#' @param data: output of classify_speed
+#'
+#' @return
+#'
+#' @examples
 classify=function(data){
   if(nrow(data)>0){
-    data=aggregate(list(ping_number=data$ping_number),  
-                   by=list(cluster=data$cluster), 
+    data=aggregate(list(ping_number=data$ping_number),
+                   by=list(cluster=data$cluster),
                    FUN=sum)
   }else{
     data=data.frame(cluster=as.numeric(), ping_number=as.numeric())
@@ -253,18 +322,27 @@ classify=function(data){
 }
 
 ###--- Classify speed ---####
-# Description: this function applies the kmeans algorithm on fishing speed data, then it use time information to identify transmission gaps (or data with time lag > parameter specified by user). 
+# Description: this function applies the kmeans algorithm on fishing speed data, then it use time information to identify transmission gaps (or data with time lag > parameter specified by user).
 # Classification results are homogenized with a lookahed and finally points are clustered into tracks basing on kmeans result and time information
+#'
+#' @param data: AIS positions
+#' @param gear: target gear. Accepted values are OTB1, OTB2, PTM, TBB, PS
+#' @param xcentroids: object containing the centroid list inherited from the input .csv file
+#' @param pars: object storing the parameter file
+#'
+#' @return
+#'
+#' @examples
 classify_speed=function(data, gear, xcentroids, pars){
   cent=xcentroids[, gear]
-  
+
   ### Evaluate if possible to execute kmeans
   if(has_error(kmeans(data$speed_smooth, cent, algorithm=c("Forgy")))==TRUE){
     print(paste0("kmeans failed in ",unique(data$trip)))
-    result=data.frame(MMSI=unique(data$MMSI), 
-                      trip=unique(data$trip), 
-                      otb=-2, 
-                      ptm=-2, 
+    result=data.frame(MMSI=unique(data$MMSI),
+                      trip=unique(data$trip),
+                      otb=-2,
+                      ptm=-2,
                       tbb=-2)
     return(result)
   } else{
@@ -272,11 +350,11 @@ classify_speed=function(data, gear, xcentroids, pars){
     data$cluster=speed_classification$cluster+2
     data$interval=0
     for(ii in 2:nrow(data)){
-      data[ii, "interval"]=difftime(data[ii,"datetime"], 
+      data[ii, "interval"]=difftime(data[ii,"datetime"],
                                     data[ii-1,"datetime"], units="mins")
     }
     data$data_block=1
-    
+
     ## identify transmission gaps and noise in classification
     for(k in 2:nrow(data)){
       if(data[k,"interval"] > pars$timepar){
@@ -287,10 +365,10 @@ classify_speed=function(data, gear, xcentroids, pars){
         }
       }
     }
-    
+
     # calculate transmission gaps duration
     gaps_duration=sum(data[data$interval>pars$timepar,]$interval)
-    
+
     ## remove false negatives with a lookhead of three
     for(k in 1:(nrow(data)-3)){
       if(data[k,"cluster"] !=data[k+1,"cluster"]){
@@ -299,7 +377,7 @@ classify_speed=function(data, gear, xcentroids, pars){
         }
       }
     }
-    
+
     ## define tracks
     for(k in 2:nrow(data)){
       data[k,"data_block"]=data[k-1,"data_block"]
@@ -313,28 +391,35 @@ classify_speed=function(data, gear, xcentroids, pars){
 
 
 
-###--- Core function #### 
-# Description: the core function process one fishing trip at time. It search for spatial clusters of points by appliying a dbscan algorithm and then it classify the fishing data basing on the speed by applying a kmeans algorithm. Information on the spatial cluster and on the speed classification are evaluated within a set of rules designed to identify a range of fishing gears. 
+###--- Core function ####
+# Description: the core function process one fishing trip at time. It search for spatial clusters of points by appliying a dbscan algorithm and then it classify the fishing data basing on the speed by applying a kmeans algorithm. Information on the spatial cluster and on the speed classification are evaluated within a set of rules designed to identify a range of fishing gears.
+#'
+#' @param trip_data: list of AIS positions divided by trip
+#' @param pars: object storing the parameter file
+#'
+#' @return
+#'
+#' @examples
 core_function=function(trip_data, pars){
   print (paste("MMSI:", unique(trip_data$MMSI),"; start month:", unique(trip_data$start_month), "; trip:", unique(trip_data$trip), sep=" "))
   ## format timestamp
   if("datetime" %in% colnames(trip_data)){
-    trip_data$datetime = as.POSIXct(trip_data$datetime, 
-                                    format='%Y-%m-%d %H:%M:%S', 
+    trip_data$datetime = as.POSIXct(trip_data$datetime,
+                                    format='%Y-%m-%d %H:%M:%S',
                                     tz="UTC")
   }else{
-    trip_data$datetime = format(as.POSIXct(paste(trip_data$date, trip_data$time), 
+    trip_data$datetime = format(as.POSIXct(paste(trip_data$date, trip_data$time),
                                            tz="UTC"), format='%Y-%m-%d %H:%M:%S')
-    
+
   }
-  
+
   trip_data=trip_data[ , c("MMSI", "datetime","latitude", "longitude", "speed","trip", "start_month") ]
   trip_data=trip_data[order(trip_data$datetime), ]
-  
+
   trip_data$year=as.numeric(as.character(lubridate::year(trip_data$datetime)))
   trip_data$id_ping=paste0(trip_data$MMSI, "_", trip_data$trip, "_", trip_data$datetime)
-  
-  # verify if there are enough data with speed > 0 (less than 90%) 
+
+  # verify if there are enough data with speed > 0 (less than 90%)
   speed_check=trip_data
   speed_check$speed=floor(speed_check$speed)
   speed_check=data.frame(table(speed_check$speed))
@@ -342,74 +427,74 @@ core_function=function(trip_data, pars){
   speed_check$zero_ratio=speed_check$n/sum(speed_check$n)
   speed_check$discard=ifelse(speed_check$speed==0 & speed_check$zero_ratio > 0.9 , 1,0)
   speed_check=speed_check[speed_check$discard==1,]
-  
+
   ## get fishing trip information
   trip_duration=difftime(trip_data[nrow(trip_data),]$datetime ,trip_data[1,]$datetime, units="mins")
   ping_number=nrow(trip_data)
   start_month=trip_data[1, "start_month"]
-  
-  ## if there are more than 90% of data with speed=0 skip the fishing trip 
+
+  ## if there are more than 90% of data with speed=0 skip the fishing trip
   if(nrow(speed_check)!=0){
     print(paste0("only zero in ", unique(trip_data$trip)))
-    classification_result=data.frame(MMSI=unique(trip_data$MMSI), 
-                                     trip=unique(trip_data$trip), 
-                                     otb1=-1, 
-                                     otb2=-1, 
-                                     ptm=-1, 
-                                     tbb=-1, 
-                                     ps=-1, 
-                                     gaps=0.99, 
-                                     n_ping=-1, 
+    classification_result=data.frame(MMSI=unique(trip_data$MMSI),
+                                     trip=unique(trip_data$trip),
+                                     otb1=-1,
+                                     otb2=-1,
+                                     ptm=-1,
+                                     tbb=-1,
+                                     ps=-1,
+                                     gaps=0.99,
+                                     n_ping=-1,
                                      start_month=start_month)
     fish_paths=data.frame(MMSI=unique(trip_data$MMSI),
                           trip=unique(trip_data$trip),
                           datetime=trip_data$datetime,
-                          latitude=trip_data$latitude, 
-                          longitude=trip_data$longitude, 
-                          otb1=-1, 
-                          ptm=-1, 
-                          tbb=-1, 
-                          ps=-1, 
-                          otb2=-1, 
+                          latitude=trip_data$latitude,
+                          longitude=trip_data$longitude,
+                          otb1=-1,
+                          ptm=-1,
+                          tbb=-1,
+                          ps=-1,
+                          otb2=-1,
                           start_month=start_month)
-    
+
     return(list(classification_result, fish_paths))
   }else{
-    
+
     ## if there are less than 12 points skip the fishing trip
     if(ping_number<12){
       print(paste0("few data in ",unique(trip_data$trip)))
-      classification_result=data.frame(MMSI=unique(trip_data$MMSI), 
-                                       trip=unique(trip_data$trip), 
-                                       otb1=-1, 
-                                       otb2=-1, 
-                                       ptm=-1, 
-                                       tbb=-1, 
-                                       ps=-1,  
-                                       gaps=0.99, 
-                                       n_ping=ping_number, 
+      classification_result=data.frame(MMSI=unique(trip_data$MMSI),
+                                       trip=unique(trip_data$trip),
+                                       otb1=-1,
+                                       otb2=-1,
+                                       ptm=-1,
+                                       tbb=-1,
+                                       ps=-1,
+                                       gaps=0.99,
+                                       n_ping=ping_number,
                                        start_month=start_month)
       fish_paths=data.frame(MMSI=unique(trip_data$MMSI),
                             trip=unique(trip_data$trip),
                             datetime=trip_data$datetime,
-                            latitude=trip_data$latitude, 
-                            longitude=trip_data$longitude, 
-                            otb1=-1, 
-                            ptm=-1, 
-                            tbb=-1, 
-                            ps=-1, 
-                            otb2=-1, 
+                            latitude=trip_data$latitude,
+                            longitude=trip_data$longitude,
+                            otb1=-1,
+                            ptm=-1,
+                            tbb=-1,
+                            ps=-1,
+                            otb2=-1,
                             start_month=start_month)
       return(list(classification_result, fish_paths))
     }else{
-      
+
       # look for spatial clusters, different parameters are provided for purse seines and pelagic trawlers
       spatial_cluster_ptm=search_cluster(data=trip_data, pars = pars, gear = "ptm")
       trip_data$cluster_ptm=spatial_cluster_ptm$id_cluster
       spatial_cluster_ps=search_cluster(data=trip_data, pars = pars, gear = "ps")
       trip_data$cluster_ps=spatial_cluster_ps$id_cluster
-      
-      # smooth speed data and apply kmeans with all the gears initial centroids 
+
+      # smooth speed data and apply kmeans with all the gears initial centroids
       trip_data$speed_smooth=savgol(trip_data$speed, fl=5, forder=2)
       data_otb1=classify_speed(data=trip_data, gear="otb1", xcentroids=centroids, pars = pars)[[1]]
       data_otb2=classify_speed(data=trip_data, gear="otb2", xcentroids=centroids, pars = pars)[[1]]
@@ -417,14 +502,14 @@ core_function=function(trip_data, pars){
       data_tbb=classify_speed(data=trip_data, gear="tbb", xcentroids=centroids, pars = pars)[[1]]
       data_ps=classify_speed(data=trip_data, gear="ps", xcentroids=centroids, pars = pars)[[1]]
       gaps_duration=classify_speed(data=trip_data, "otb1", xcentroids=centroids, pars = pars)[[2]]
-      
+
       ## classification OTB
       tracks_otb1=make_tracks_lite(data=data_otb1, gear="otb1")
       validation_tracks_otb1=tracks_otb1[,c("data_block", "cluster")]
       names(validation_tracks_otb1)[2]="valid_cluster"
       data_otb1=merge(data_otb1, validation_tracks_otb1, by="data_block", all.x=T)
       data_otb1=data_otb1[order(data_otb1$datetime) , ]
-      data_otb1$cluster=ifelse(data_otb1$cluster==4 & is.na(data_otb1$valid_cluster)==T, 
+      data_otb1$cluster=ifelse(data_otb1$cluster==4 & is.na(data_otb1$valid_cluster)==T,
                                2,data_otb1$cluster)
       res_otb1=classify(data=tracks_otb1)
       if(nrow(res_otb1)==0){
@@ -433,15 +518,15 @@ core_function=function(trip_data, pars){
         result_otb1=ifelse(res_otb1[res_otb1$cluster==4,]$ping_number/sum(res_otb1$ping_number) >=pars$ratio_otb,
                            1,0)
       }
-      
+
       ## classification BOT (BOT is just an alternative set of centroids for OTB)
       tracks_otb2=make_tracks_lite(data=data_otb2, gear="otb2")
       validation_tracks_otb2=tracks_otb2[,c("data_block", "cluster")]
       names(validation_tracks_otb2)[2]="valid_cluster"
       data_otb2=merge(data_otb2, validation_tracks_otb2, by="data_block", all.x=T)
       data_otb2=data_otb2[order(data_otb2$datetime) , ]
-      data_otb2$cluster=ifelse(data_otb2$cluster==4 & is.na(data_otb2$valid_cluster)==T, 
-                               2, 
+      data_otb2$cluster=ifelse(data_otb2$cluster==4 & is.na(data_otb2$valid_cluster)==T,
+                               2,
                                data_otb2$cluster)
       res_otb2=classify(data=tracks_otb2)
       if(nrow(res_otb2)==0){
@@ -449,7 +534,7 @@ core_function=function(trip_data, pars){
       }else{
         result_otb2=ifelse(res_otb2[res_otb2$cluster==4,]$ping_number/sum(res_otb2$ping_number) >=pars$ratio_otb, 1, 0)
       }
-      
+
       ## classification TBB
       tracks_tbb=make_tracks_lite(data=data_tbb, gear="tbb")
       validation_tracks_tbb=tracks_tbb[,c("data_block", "cluster")]
@@ -477,21 +562,21 @@ core_function=function(trip_data, pars){
       if(nrow(check_cluster(data=data_ptm, gear="ptm", threshold=0.8, low_speed=3))==0){
         result_ptm=NA;result_ptm
       }else{
-        result_ptm=0 
+        result_ptm=0
       }
       if(is.na(result_ptm)){
         res_ptm=classify(data=tracks_ptm)
         if(nrow(res_ptm)==0){
           result_ptm=0
         }else{
-          
+
           ## If hauls are too long this is not a PTM
           check_haul_duration=tracks_ptm[tracks_ptm$cluster==4 & tracks_ptm$ping_number > 25,]
-          result_ptm=ifelse(nrow(check_haul_duration)==0 & 
+          result_ptm=ifelse(nrow(check_haul_duration)==0 &
                               res_ptm[res_ptm$cluster==4,]$ping_number/sum(res_ptm$ping_number) >=pars$ratio_ptm, 1,0)
         }
       }
-      
+
       ### Classification PS
       #check mean speed in PS clusters: if there are less than 70% of low speed values this is not a PS
       if(nrow(check_cluster(data=data_ps, gear="ps", threshold=0.7, low_speed=c(2,3)))==0){
@@ -509,28 +594,28 @@ core_function=function(trip_data, pars){
           }
         }
       }
-      
+
       # store classified data for later
       fish_paths=data.frame(MMSI=unique(trip_data$MMSI),
                             trip=unique(trip_data$trip),
                             datetime=trip_data$datetime,
-                            latitude=data_otb1$latitude, 
-                            longitude=data_otb1$longitude, 
-                            otb1=data_otb1$cluster, 
-                            ptm=data_ptm$cluster, 
-                            tbb=data_tbb$cluster, 
-                            ps=data_ps$cluster_ps, 
-                            otb2=data_otb2$cluster, 
+                            latitude=data_otb1$latitude,
+                            longitude=data_otb1$longitude,
+                            otb1=data_otb1$cluster,
+                            ptm=data_ptm$cluster,
+                            tbb=data_tbb$cluster,
+                            ps=data_ps$cluster_ps,
+                            otb2=data_otb2$cluster,
                             start_month=start_month)
-      classification_result=data.frame(MMSI=unique(trip_data$MMSI), 
-                                       trip=unique(trip_data$trip), 
-                                       otb1=result_otb1, 
-                                       otb2=result_otb2, 
-                                       ptm=result_ptm, 
-                                       tbb=result_tbb, 
-                                       ps=result_ps, 
-                                       gaps=gaps_duration/as.numeric(trip_duration), 
-                                       n_ping=ping_number, 
+      classification_result=data.frame(MMSI=unique(trip_data$MMSI),
+                                       trip=unique(trip_data$trip),
+                                       otb1=result_otb1,
+                                       otb2=result_otb2,
+                                       ptm=result_ptm,
+                                       tbb=result_tbb,
+                                       ps=result_ps,
+                                       gaps=gaps_duration/as.numeric(trip_duration),
+                                       n_ping=ping_number,
                                        start_month=start_month)
       return(list(classification_result, fish_paths))
     }
@@ -540,32 +625,40 @@ core_function=function(trip_data, pars){
 
 ###--- Create fishing trip ####
 #The create_fishing_trip function aims to identify the fishing trips of each vessel. A fishing trip is composed by the sequence of points broadcasted by a vessel, from when it leaves the port until it returns. To run the function, four datasets are required: the sequence of AIS positions of a vessel, the coastal_ban_zone layer and the 2 layers related to the ports
+#'
+#' @param data: AIS positions
+#' @param ports: port locations (.shp)
+#' @param ports_buffer: 1 km buffer, created around the input ports (.shp)
+#'
+#' @return
+#'
+#' @examples
 create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
   if(nrow(data )< 10){
     trip_table=NULL
     return(trip_table)
   }else{
     if("datetime" %in% colnames(data)){
-      data$datetime = as.POSIXct(data$datetime, 
-                                 format='%Y-%m-%d %H:%M:%S', 
+      data$datetime = as.POSIXct(data$datetime,
+                                 format='%Y-%m-%d %H:%M:%S',
                                  tz="UTC")
-      data$date=format(data$datetime, format='%Y-%m-%d', 
+      data$date=format(data$datetime, format='%Y-%m-%d',
                        tz="UTC")
-      data$time=format(data$datetime, format='%H:%M:%S', 
+      data$time=format(data$datetime, format='%H:%M:%S',
                        tz="UTC")
       datatest = data[order(data$datetime), ]
     }else{
-      data$datetime = format(as.POSIXct(paste(data$date, data$time), 
-                                        tz="UTC"), 
-                             format='%Y-%m-%d %H:%M:%S', 
+      data$datetime = format(as.POSIXct(paste(data$date, data$time),
+                                        tz="UTC"),
+                             format='%Y-%m-%d %H:%M:%S',
                              tz="UTC")
       datatest = data[order(data$datetime), ]
     }
-    
+
     datatest$rowid=seq(1:nrow(datatest))
     inport = find_inport(datatest, ports)
     datatest$inport = ifelse(datatest$rowid %in% inport, 1, 0)
-    
+
     # Initialization
     first=datatest[1,]
     start=0
@@ -598,7 +691,7 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
         inizio=1
       }
     }
-    
+
     # trip creation
     pb = txtProgressBar(min = 0, max = nrow(datatest) - 5, initial = 0)
     for(j in 5:nrow(datatest)){
@@ -631,7 +724,7 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
               inport = 0
               buffer = 0
             }
-          }else if(sum(queue.s)==0){ 
+          }else if(sum(queue.s)==0){
             inport=0
           }
         }
@@ -680,7 +773,7 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
                 if(start > datatest[j-1,"rowid"]){
                   start = start -1
                 }
-                
+
                 trip_table_j=build_trip(data = datatest, index = j, xstart = start , xpos = pos, index2 = k, ports_buffer = ports_buffer, ports=ports)
                 if(exists("trip_table")){
                   trip_table=rbind(trip_table, trip_table_j)
@@ -710,16 +803,16 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
               if(check == 1 ){
                 t1=datatest[j-1 , "datetime"]
                 t2=datatest[j , "datetime"]
-                if(as.numeric(difftime(t2,t1, units="hours"))>deltat){ 
+                if(as.numeric(difftime(t2,t1, units="hours"))>deltat){
                   ti=datatest[datatest$rowid == start +1 , "datetime"]
                   tj=datatest[datatest$rowid == start , "datetime"]
                   if(as.numeric(difftime(ti , tj, units="hours")) > 1){
                     start = start +1
                   }
-                  if( start > datatest[j-1 , "rowid"]){ 
-                    start = start -1 
+                  if( start > datatest[j-1 , "rowid"]){
+                    start = start -1
                   }
-                  
+
                   trip_table_j=build_trip(data = datatest, index = j , xstart = start, xpos = pos, index2 = k, ports_buffer = ports_buffer, ports=ports)
                   if(exists("trip_table")){
                     trip_table=rbind(trip_table, trip_table_j)
@@ -729,7 +822,7 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
                   k = k +1
                   start = datatest[j, "rowid"]
                   finish = 0
-                  delta = 1  
+                  delta = 1
                   inizio = 1
                   inport = 1
                 }
@@ -843,26 +936,33 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
           setTxtProgressBar(pb,i)
         }
       }
-      trip_table$start_timestamp = as.POSIXct(paste(trip_table$startdata, trip_table$starttime), 
-                                              format='%Y-%m-%d %H:%M:%S', 
+      trip_table$start_timestamp = as.POSIXct(paste(trip_table$startdata, trip_table$starttime),
+                                              format='%Y-%m-%d %H:%M:%S',
                                               tz="UTC")
-      trip_table$end_timestamp = as.POSIXct(paste(trip_table$enddata, trip_table$endtime), 
-                                            format='%Y-%m-%d %H:%M:%S', 
+      trip_table$end_timestamp = as.POSIXct(paste(trip_table$enddata, trip_table$endtime),
+                                            format='%Y-%m-%d %H:%M:%S',
                                             tz="UTC")
       trip_table$MMSI = trip_table$mmsi
       trip_table = trip_table[,c("MMSI", "trip", "start_timestamp", "end_timestamp", "departure", "arrival")]
       cat("....complete!!!")
       return(trip_table)
     }
-    }
-  
-  
   }
+
+
+}
 
 
 
 
 ###--- Data partitioning for model ####
+#' Title
+#'
+#' @param data: ground truth information for vessels gear
+#'
+#' @return
+#'
+#' @examples
 data_partition <- function(data){
   ref_gear = c("OTB", "LLS" , "PS", "PTM" , "TBB" , "DRB" , "LLD" )
   ref_gear2 = c("OTB", "PS", "PTM" , "TBB")
@@ -872,27 +972,27 @@ data_partition <- function(data){
   colnames(create)[ncol(create)] = "n"
   create$sam = round(10*(create$n/100))
   create_ref = create[,c("gear_obs", "sam")]
-  
+
   #validation
   ref_validation = aggregate(gear_obs ~ MMSI, data = data, function(x) length(unique(x)))
   ref_validation = ref_validation[which(ref_validation$gear_obs == 1),]
   myvalidation =  unique(merge(data, data.frame(MMSI = ref_validation[,1]), by = "MMSI")[,c("MMSI", "gear_obs")])
   myvalidation = merge(myvalidation, create_ref, by = "gear_obs", all.x = T)
-  myvalidation = plyr:::ldply(lapply(split(myvalidation, myvalidation$gear_obs), function(x){ 
+  myvalidation = plyr:::ldply(lapply(split(myvalidation, myvalidation$gear_obs), function(x){
     xsam = unique(x$sam)
     merge(x[sample(1:nrow(x), unique(x$sam), replace = F),], data, by = c("MMSI", "gear_obs"))
   }))
-  
+
   # data for training/test
   data_for_model = dplyr:::anti_join(data, myvalidation, by = "MMSI")
   data_for_model$ids = 1:nrow(data_for_model)
   data_for_model$id = paste(data_for_model$MMSI, data_for_model$ids)
-  
+
   # data partitionining
   train_ref = as.numeric(unlist(caret:::createDataPartition(paste(data_for_model$gear_obs, data_for_model$year), p = 0.7)))
   mytraining = data_for_model[train_ref,]
   mytest = data_for_model[-train_ref,]
-  
+
   # export
   data_splitted = list(training = mytraining, test = mytest, validation = myvalidation)
   return(data_splitted)
@@ -903,6 +1003,13 @@ data_partition <- function(data){
 
 ###--- Decision gear ---####
 # This function function uses the trained Random Forest model to predict the fishing gear for each month., The features used to predict the monthly gear consist in the ratio between  the trip labelled as positive for each gear and the total number of the fishing trips (ratio_otb1; ratio_otb2; ratio_ptm; ratio_tbb; ratio_ps).
+#' Title
+#'
+#' @param data: requires the binary results of the classification algorithms for each fishing trip (output of the classification wrapper “dat_classified[["classification_result"]]”)
+#'
+#' @return
+#'
+#' @examples
 decision_gear<-function(data){
   data=split(data, data$start_month)
   monthly_gears=lapply(data, function(xdata){
@@ -914,10 +1021,10 @@ decision_gear<-function(data){
     data[is.na(data)] <- 0
     data_valid=data[data$valid==1, -which(names(data) %in% c("gaps", "n_ping","trip", "valid"))]
     if(nrow(data_valid)==0){
-      data_valid=data.frame(MMSI=unique(data$MMSI), 
-                            start_month=unique(data$start_month), 
-                            total_trips=nrow(data), 
-                            valid_trips=0, 
+      data_valid=data.frame(MMSI=unique(data$MMSI),
+                            start_month=unique(data$start_month),
+                            total_trips=nrow(data),
+                            valid_trips=0,
                             otb1=0,
                             otb2=0,
                             ptm=0,
@@ -927,7 +1034,7 @@ decision_gear<-function(data){
                             ratio_otb2=0,
                             ratio_ptm=0,
                             ratio_tbb=0,
-                            ratio_ps=0, 
+                            ratio_ps=0,
                             gear="OTHER")
       return(data_valid)
     }else{
@@ -944,16 +1051,16 @@ decision_gear<-function(data){
       data_valid$ratio_tbb=data_valid$tbb/data_valid$valid_trips
       data_valid$ratio_ps=data_valid$ps/data_valid$valid_trips
       data_backup=data
-      data=aggregate(list(total_trips=data$trip), 
-                     by=list(MMSI=data$MMSI, start_month=data$start_month), 
+      data=aggregate(list(total_trips=data$trip),
+                     by=list(MMSI=data$MMSI, start_month=data$start_month),
                      FUN=length)
       data_valid=merge(data, data_valid, by=c("MMSI", "start_month"))
       data_valid[is.na(data_valid)]<-0
       if(nrow(data_valid)==0){
-        data_valid=data.frame(MMSI=unique(data_backup$MMSI), 
-                              start_month=unique(data_backup$start_month), 
-                              total_trips=nrow(data_backup), 
-                              valid_trips=0, 
+        data_valid=data.frame(MMSI=unique(data_backup$MMSI),
+                              start_month=unique(data_backup$start_month),
+                              total_trips=nrow(data_backup),
+                              valid_trips=0,
                               otb1=0,
                               otb2=0,
                               ptm=0,
@@ -963,14 +1070,14 @@ decision_gear<-function(data){
                               ratio_otb2=0,
                               ratio_ptm=0,
                               ratio_tbb=0,
-                              ratio_ps=0, 
+                              ratio_ps=0,
                               gear="OTHER")
         return(data_valid)
       }else if( data_valid$valid_trips < 2){
         data_valid=data.frame(MMSI=unique(data_backup$MMSI),
-                              start_month=unique(data_backup$start_month), 
-                              total_trips=nrow(data_backup), 
-                              valid_trips=0, 
+                              start_month=unique(data_backup$start_month),
+                              total_trips=nrow(data_backup),
+                              valid_trips=0,
                               otb1=0,
                               otb2=0,
                               ptm=0,
@@ -985,7 +1092,7 @@ decision_gear<-function(data){
         return(data_valid)
       }else{
         set.seed(461)
-        gear=as.character(predict(classification_RF, 
+        gear=as.character(predict(classification_RF,
                                   newdata=data_valid[,c("valid_trips",
                                                         "ratio_otb1",
                                                         "ratio_otb2",
@@ -1000,7 +1107,7 @@ decision_gear<-function(data){
         }
         data_valid=data_valid[,c("MMSI",
                                  "start_month",
-                                 "total_trips", 
+                                 "total_trips",
                                  "valid_trips",
                                  "otb1", "otb2","ptm","tbb","ps",
                                  "ratio_otb1","ratio_otb2","ratio_ptm","ratio_tbb","ratio_ps",
@@ -1008,22 +1115,30 @@ decision_gear<-function(data){
         return(data_valid)
       }
     }
-    
+
   })
   monthly_gears=do.call(rbind, monthly_gears)
   return(monthly_gears)
-  }
+}
 
 
 
 ###--- Estimate fishing effort ####
+#' Title
+#'
+#' @param fishing_tracks: spatial object containing the geometries of the fishing activity
+#' @param grid: spatial object containing the reticule covering the area of interest that will be intersected with the fishing tracks.
+#'
+#' @return
+#'
+#' @examples
 estimate_fishing_effort <- function(fishing_tracks, grid){
   lapply(fishing_tracks, function(x){
     if(is.data.frame(x)){
       x = st_sf(x)
     }
     xgear = unique(x$gear)
-    st_crs(x)=wgs # set crs 
+    st_crs(x)=wgs # set crs
     if(xgear == "PS"){
       x$duration=difftime(x$f_time, x$s_time, units="secs")
       x=st_as_sf(x)
@@ -1036,7 +1151,7 @@ estimate_fishing_effort <- function(fishing_tracks, grid){
       grid_edit=merge(grid, f_hours, by="grid_id") # combine effort to grid
       return(grid_edit)
     }else{
-      x$distance=st_length(x$geometry, units="m") # estimated fishing track 
+      x$distance=st_length(x$geometry, units="m") # estimated fishing track
       x$duration=difftime(x$f_time, x$s_time, units="secs")
       x$speed_ms=as.numeric(x$distance)/as.numeric(x$duration)
       x=st_as_sf(x)
@@ -1053,10 +1168,18 @@ estimate_fishing_effort <- function(fishing_tracks, grid){
       }
     }
   })
-  
+
 }
 ###--- Find in harbours ####
 # This function is used to individuate if there are points (x,y) that fall within the polygon of harbours, and, eventually, it indicates which are these points.
+#' Title
+#'
+#' @param data: AIS positions
+#' @param ports: ports layer
+#'
+#' @return
+#'
+#' @examples
 find_inport = function(data, ports){
   data = st_as_sf(data, coords = c("longitude", "latitude"))
   st_crs(data) = wgs
@@ -1065,7 +1188,16 @@ find_inport = function(data, ports){
   return(inports)
 }
 ###--- Find the closest harbour ####
-#This function is used to assign the beginning and ending ports of fishing trips. The departure or the arrival harbor was assigned considering the closest harbor with respect to the first or last position of the trip 
+#This function is used to assign the beginning and ending ports of fishing trips. The departure or the arrival harbor was assigned considering the closest harbor with respect to the first or last position of the trip
+#' Title
+#'
+#' @param longitude: longitude coordinate of the first or last point of the fishing trip
+#' @param latitude: latitude coordinate of the first or last point of the fishing trip
+#' @param ports: is the shapefile with harbors locations
+#'
+#' @return
+#'
+#' @examples
 closest_port=function(longitude , latitude, ports){
   pos = data.frame(x = longitude , y =latitude)
   pos = st_as_sf(pos, coords=c("x", "y"))
@@ -1079,6 +1211,16 @@ closest_port=function(longitude , latitude, ports){
 
 ###--- Find the closest harbour recovery ####
 #This function is used to assign the beginning and ending ports of fishing trips during the recovery step of the create fishing trip function. This function individuate if there are harbours closest then 50 km with respect to the first or last position of the trip. If there are harbours, the function select the closest five, then it checks if the reference_port is included in the closest five. If yes, it assign this harbour, if no, it assign the closest harbour.
+#' Title
+#'
+#' @param longitude: longitude coordinate of the first or last point of the fishing trip
+#' @param latitude: latitude coordinate of the first or last point of the fishing trip
+#' @param ports: ports layer
+#' @param reference_port: is the harbour at the other extremity of the fishing trip. Example: if longitude and latitude indicates the first point of the trip, reference_port will be the port of arrival
+#'
+#' @return
+#'
+#' @examples
 closest_port_recovery=function(longitude , latitude, ports, reference_port){
   pos = data.frame(x = longitude , y =latitude)
   pos = st_as_sf(pos, coords=c("x", "y"))
@@ -1104,6 +1246,16 @@ closest_port_recovery=function(longitude , latitude, ports, reference_port){
 
 ###--- Find the overlapping harbour ####
 # This function is used to assign the beginning and ending ports of fishing trips, by the means of a spatial intersection between coordinates and the ports buffer layer. If the intersection is successful, it return the name of the identified harbour
+#' Title
+#'
+#' @param longitude: longitude coordinate of the first or last point of the fishing trip
+#' @param latitude: latitude coordinate of the first or last point of the fishing trip
+#' @param ports_buffer: 1km buffer of the ports layer
+#' @param ports: ports layer
+#'
+#' @return
+#'
+#' @examples
 get_port=function(longitude, latitude, ports_buffer, ports){
   position = data.frame(longitude = longitude, latitude = latitude)
   position = st_as_sf(position, coords=c("longitude", "latitude"))
@@ -1119,7 +1271,16 @@ get_port=function(longitude, latitude, ports_buffer, ports){
 }
 
 ###--- Identify fishing points ####
-# This function recycles the clusters (obtained from k-means analysis for towed gears and from dbscan for purse seiners) and retrieving points corresponding to fishing clusters. 
+# This function recycles the clusters (obtained from k-means analysis for towed gears and from dbscan for purse seiners) and retrieving points corresponding to fishing clusters.
+#' Title
+#'
+#' @param data: requires AIS data, indexed by fishing trip and labelled with the information from k-means and dbscan (output of the classification wrapper “dat_classified[["data_labelled"]]”)
+#' @param gear:  the result of the decision gear function, containing the gear predicted by the Random Forest classifier
+#' @param coord_sys: coordinate reference system (e.g.: WGS 84)
+#'
+#' @return
+#'
+#' @examples
 identify_fishing_points=function(data, gear,coord_sys){
   xdat=split(data, data$start_month)
   xgear=split(gear, gear$start_month)
@@ -1153,7 +1314,7 @@ identify_fishing_points=function(data, gear,coord_sys){
     results_table=results_table[, -which(names(results_table) %in% c("cl"))]
     results_table=results_table[,c("MMSI","datetime","longitude","latitude","trip", "fishing", "gear")]
     return(results_table)
-    
+
   }
   res_table=do.call(rbind,mapply(f_point,xdat,xgear, SIMPLIFY = F))
   res_table=st_as_sf(res_table, coords=c("longitude", "latitude"))
@@ -1164,6 +1325,14 @@ identify_fishing_points=function(data, gear,coord_sys){
 
 ###--- Identify transmission gaps ####
 # This function recycles the data gaps from the function "core_function" and retrieving tracks corresponding to gaps in the AIS signal.
+#' Title
+#'
+#' @param data: results from “classification wrapper” function, consisting in raw AIS data labelled with the k-means results
+#' @param coord_sys:  coordinates system (e.g.: WGS 84)
+#'
+#' @return
+#'
+#' @examples
 identify_trasmission_gaps=function(data, coord_sys){
   data=data[,c("MMSI","datetime","longitude","latitude","trip", "otb1", "start_month")]
   data$gap=0
@@ -1175,10 +1344,10 @@ identify_trasmission_gaps=function(data, coord_sys){
   }
   data$interval=0
   for(ii in 2:nrow(data)){
-    data[ii, "interval"]=difftime(data[ii,"datetime"], 
+    data[ii, "interval"]=difftime(data[ii,"datetime"],
                                   data[ii-1,"datetime"], units="mins")
   }
-  
+
   data$id_gap=1
   for(k in 2:nrow(data)){
     data[k,"id_gap"]=data[k-1,"id_gap"]
@@ -1186,11 +1355,11 @@ identify_trasmission_gaps=function(data, coord_sys){
       data[k,"id_gap"]=data[k-1,"id_gap"]+1
     }
   }
-  
+
   data=data[data$gap==1,]
   xdata=data
   if(nrow(xdata)> 0){
-    mmsi=unique(xdata$MMSI)  
+    mmsi=unique(xdata$MMSI)
     s_time=aggregate(list(s_time=xdata$datetime), by=list(id_gap=xdata$id_gap), FUN=min )
     f_time=aggregate(list(f_time=xdata$datetime, trip=xdata$trip), by=list(id_gap=xdata$id_gap), FUN=max )
     result_table_1=merge(s_time, f_time, by="id_gap")
@@ -1213,7 +1382,14 @@ identify_trasmission_gaps=function(data, coord_sys){
 }
 
 ###--- Import parameters ----
-# This function allows to load the required parameters of several internal functions
+#' This function allows to load the required parameters of several internal functions
+#'
+#' @param parameters: an external csv file with the following parameters
+#' @param centroids: an external csv file containing the set of centroids values to test using the kmeans method in the classification alghorithm
+#'
+#' @return
+#'
+#' @examples
 inport_parameters <- function(parameters, centroids){
   parameters_tab=read.csv(parameters)
   param=sapply(1:nrow(parameters_tab), function(y) parameters_tab[y,"value"], simplify=F)
@@ -1223,7 +1399,17 @@ inport_parameters <- function(parameters, centroids){
 }
 
 ###--- Inspect coastal ban zone ####
-#This function is used to individuate if the last points of a fishing trip (n) and the first point of the subsequent fishing trip (n+1), lies within the coastal ban zone. It returns the number of points individuated.
+#' This function is used to individuate if the last points of a fishing trip (n) and the first point of the subsequent fishing trip (n+1), lies within the coastal ban zone. It returns the number of points individuated.
+#'
+#' @param longitude_start:  longitude coordinate of the first point of the fishing trip n+1
+#' @param latitude_start:  latitude coordinates of the first point of the fishing trip n+1
+#' @param longitude_end:  longitude coordinates of the last point of the fishing trip n
+#' @param latitude_end: latitude coordinates of the last point of the fishing trip n
+#' @param coastal_ban_zone: coastal ban zone layer
+#'
+#' @return
+#'
+#' @examples
 incoastal_ban_zone=function(longitude_start , latitude_start , longitude_end , latitude_end, coastal_ban_zone){
   final_position = data.frame(x = longitude_end , y = latitude_end)
   final_position = st_as_sf(final_position, coords = c("x", "y"))
@@ -1239,12 +1425,20 @@ incoastal_ban_zone=function(longitude_start , latitude_start , longitude_end , l
 
 
 ###--- Make fishing tracks ####
-# This function extracts fishing tracks from fishing points, using a temporal threshold (thr_minutes) to connect successively ordered fishing points <= thr_minutes and avoid false fishing tracks connecting two subsequent fishing events. The result of make_fishing_tracks function is a spatial object where the fishing geometries are stored.
+#' This function extracts fishing tracks from fishing points, using a temporal threshold (thr_minutes) to connect successively ordered fishing points <= thr_minutes and avoid false fishing tracks connecting two subsequent fishing events. The result of make_fishing_tracks function is a spatial object where the fishing geometries are stored.
+#'
+#' @param data: AIS data labelled with the gear identified and with a column (binary) identifying the data considered as fishing activity
+#' @param coord_sys: coordinate reference system (e.g.: WGS 84)
+#' @param pars:  object storing the parameter file
+#'
+#' @return
+#'
+#' @examples
 make_fishing_tracks=function(data, coord_sys, pars){
-  
+
   data=data[data$gear %in% c("OTB1", "OTB2", "PTM", "TBB", "PS"),]
   data=split(data, data$gear)
-  
+
   f_tracks=lapply(data, function(xdata){
     xdata=data.frame(xdata)
     if(nrow(xdata)>2){
@@ -1252,7 +1446,7 @@ make_fishing_tracks=function(data, coord_sys, pars){
       mmsi=unique(xdata$MMSI)
       xdata$interval=0
       for(ii in 2:nrow(xdata)){
-        xdata[ii, "interval"]=difftime(xdata[ii,"datetime"], 
+        xdata[ii, "interval"]=difftime(xdata[ii,"datetime"],
                                        xdata[ii-1,"datetime"], units="mins")
       }
       xdata$id_track=1
@@ -1264,7 +1458,7 @@ make_fishing_tracks=function(data, coord_sys, pars){
       }
       xdata=xdata[xdata$fishing==1,]
       if(nrow(xdata)> 0){
-        
+
         if(gear=="PS"){
           xcoords=st_coordinates(xdata$geometry)
           xdata$longitude=xcoords[,"X"]
@@ -1274,14 +1468,14 @@ make_fishing_tracks=function(data, coord_sys, pars){
           f_time=aggregate(list(f_time=xdata$datetime,trip=xdata$trip), by=list(id_track=xdata$id_track), FUN=max )
           result_table_1=merge(s_time, f_time, by="id_track")
           result_table_1$MMSI=mmsi
-          result_table_2=aggregate(list(mean_x=xdata$longitude, mean_y=xdata$latitude), 
-                                   by=list(id_track=xdata$id_track), 
+          result_table_2=aggregate(list(mean_x=xdata$longitude, mean_y=xdata$latitude),
+                                   by=list(id_track=xdata$id_track),
                                    FUN=mean)
           range=merge(aggregate(list(xMin=xdata$longitude, yMin=xdata$latitude),
-                                by=list(id_track=xdata$id_track), 
+                                by=list(id_track=xdata$id_track),
                                 FUN=min),
                       aggregate(list(xMax=xdata$longitude, yMax=xdata$latitude),
-                                by=list(id_track=xdata$id_track), 
+                                by=list(id_track=xdata$id_track),
                                 FUN=max),
                       by="id_track")
           range$range=((range$xMax-range$xMin)+(range$yMax-range$yMin))/2
@@ -1315,18 +1509,25 @@ make_fishing_tracks=function(data, coord_sys, pars){
         }
         xdata = st_sf(xdata)
         return(xdata)
-        
+
       }else{
         return(xdata)
       }
     }
   })
-  
+
   return(f_tracks)
 }
 
 ###--- Make tracks lite ---####
-# this function group points into groups basing on previous function information, than it removes the first and the last steaming tracks
+#' This function group points into groups basing on previous function information, than it removes the first and the last steaming tracks
+#'
+#' @param data: AIS positions with a column indicating the cluster identified by the k-means for each point
+#' @param gear: target fishing gear. Accepted values are OTB1, OTB2, TBB, PTM, PS
+#'
+#' @return
+#'
+#' @examples
 make_tracks_lite=function(data, gear){
   # remove blocks composed by one point
   block_count=data.frame(table(data$data_block, dnn=c("data_block")))
@@ -1339,7 +1540,7 @@ make_tracks_lite=function(data, gear){
   if(nrow(data)==0){
     return(data)
   }else{
-    
+
     # remove steaming at beginning and end
     data$drop="N"
     for(k in 1:nrow(data)){
@@ -1349,7 +1550,7 @@ make_tracks_lite=function(data, gear){
         break
       }
     }
-    
+
     for(k in nrow(data):1){
       if(data[k,"cluster"]!=cluster_fishing){
         data[k,"drop"]="Y"
@@ -1363,7 +1564,15 @@ make_tracks_lite=function(data, gear){
 }
 
 ###--- Search clusters ---####
-# This function applies the dbscan algorithm to identify spatial clusters in the input data
+#' This function applies the dbscan algorithm to identify spatial clusters in the input data
+#'
+#' @param data: AIS positions
+#' @param pars: object storing the parameter file. Different parameters are provided for different fishing gears
+#' @param gear: target fishing gear. Accepted values are OTB1, OTB2, PTM, TBB
+#'
+#' @return
+#'
+#' @examples
 search_cluster=function(data, pars, gear){
   neighborhood_rf=paste0("range_", gear)
   neighborhood=pars[[neighborhood_rf]]
@@ -1376,7 +1585,7 @@ search_cluster=function(data, pars, gear){
   xcluster$index=seq(1:nrow(xcluster))
   xcluster_filter=xcluster[xcluster$id_cluster!=0,]
   if(nrow(xcluster_filter)!=0){
-    
+
     #adjust and paste to dataset
     for(k in 2:nrow(xcluster_filter)){
       xcluster_filter[k,"id_cluster"]=xcluster_filter[k-1,"id_cluster"]
@@ -1384,8 +1593,8 @@ search_cluster=function(data, pars, gear){
         xcluster_filter[k,"id_cluster"]=xcluster_filter[k-1,"id_cluster"]+1
       }
     }
-    count_points=aggregate(list(n_pts=xcluster_filter$index), 
-                           by=list(id_cluster=xcluster_filter$id_cluster), 
+    count_points=aggregate(list(n_pts=xcluster_filter$index),
+                           by=list(id_cluster=xcluster_filter$id_cluster),
                            FUN=length)
     count_points=count_points[count_points$n_pts > pts ,]
     xcluster_filter=xcluster_filter[xcluster_filter$id_cluster %in% count_points$id_cluster,]
@@ -1396,7 +1605,6 @@ search_cluster=function(data, pars, gear){
   names(xcluster)[1]="id"
   return(xcluster)
 }
-
 
 
 
