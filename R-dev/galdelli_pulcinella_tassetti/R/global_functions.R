@@ -37,6 +37,7 @@ library(dplyr)
 library(readr)
 
 "%ni%"=Negate('%in%')
+classification_RF=readRDS("R/RF_gear_release_v2.rds")
 
 ###--- Assign ping to trip ####
 #' This function paste the information from the fishing trip (id of the trip) to the initial dataset. Points that does not fall within a trip are removed
