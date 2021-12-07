@@ -7,14 +7,12 @@
 #
 #Script Name: global_functions.R
 #
-#Script Description:
-#
-#
-#Notes:
-#
+#Script Description: list of functions used in workflow_orginal_version.R script
 #
 
+
 ##--- Libraries and data ####
+install.missing.packages=TRUE
 list.of.packages <- c("readxl" , "viridis", "randomForest" , "sf", "testit", "dbscan", "pracma", "parallel", "caret", "plyr","pbapply", "lubridate", "data.table")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(install.missing.packages==T){
@@ -40,8 +38,13 @@ library(readr)
 
 "%ni%"=Negate('%in%')
 classification_RF=readRDS("R/RF_gear_release_v2.rds")
+
 ###--- Assign ping to trip ####
-# This function paste the information from the fishing trip (id of the trip) to the initial dataset. Points that does not fall within a trip are removed
+#' This function paste the information from the fishing trip (id of the trip) to the initial dataset. Points that does not fall within a trip are removed
+#'
+#' @param data: AIS positions
+#' @param trip_table: dataframe containing the list of fishing trips and the relative timestamp information (output of the create_fishing_trip function)
+#'
 assign_trip = function(data, trip_table){
 
   if("datetime" %in% colnames(data)){
@@ -77,7 +80,6 @@ assign_trip = function(data, trip_table){
 #' @param ports_buffer: 0.001° buffer of the ports layer
 #' @param ports: ports layer
 #'
-#'
 build_trip=function(data, index, xstart, xpos, index2, ports_buffer, ports){
   startid = data[data$rowid == xstart, "rowid"]
   endid   = data[ index-1, "rowid"]
@@ -104,9 +106,9 @@ build_trip=function(data, index, xstart, xpos, index2, ports_buffer, ports){
 
 
 ###--- Classification workflow ----
-# Description: classification workflow function applies the entire the data flow. Data are divided by fishing trips, to apply on each the "Core function" (described below).
-# Results of the core functions are passed to the function "decision gear" (described below) to classify the vessel gear.
-# Depending on this, data are processed to create fishing tracks or, for Purse seines, fishing operation centroids
+#' Classification workflow function applies the entire the data flow. Data are divided by fishing trips, to apply on each the "Core function" (described below).
+#' Results of the core functions are passed to the function "decision gear" (described below) to classify the vessel gear.
+#' Depending on this, data are processed to create fishing tracks or, for Purse seines, fishing operation centroids
 #'
 #' @param data: raw AIS data
 #' @param ports: .shp of the port locations
@@ -115,13 +117,8 @@ build_trip=function(data, index, xstart, xpos, index2, ports_buffer, ports){
 #' @param pars: object storing the parameter file
 #' @param coord_sys: coordinate reference system (e.g.: WGS 84)
 #' @param output.type: specify if the output will be the fishing tracks (argument: “tracks”) or the fishing points (argument: “points”)
-#' @param write.output
-#' @param output.name
-#'
-#' @return
-#'
-#' @examples
-#'
+#' @param write.output: specify if to save the output on file or not
+#' @param output.name: logical argument, specify the name to be given to the output file
 #'
 classification_workflow=function(data, ports, ports_buffer, coastal_ban_zone, pars, coord_sys, output.type, write.output=F, output.name=F){
   # Divide data into fishing trips
@@ -193,17 +190,13 @@ classification_workflow=function(data, ports, ports_buffer, coastal_ban_zone, pa
 
 
 ###--- Classification wrapper ####
-#' Title
+#' This function analyzes the speed profile of the points contained within a spatial cluster, and indicates if the proportion of the point indicated by the target speed is above a specified threshold
 #'
 #' @param vessel_data: raw AIS data with an additional column indexing the corresponding fishing trip
 #' @param pars: table of parameters required by the classification functions
 #' @param write.output: logical argument to store the data needed to train the Random Forest model
 #' @param output.name: logical argument, specify the name to be given to the output file
 #'
-#' @return
-#'
-#'
-#' @examples
 classification_wrapper=function(vessel_data, pars, write.output = F, output.name=F){
   start_month=aggregate(datetime~trip, vessel_data, function(x) month(min(x)))
   colnames(start_month)[ncol(start_month)] = "start_month"
@@ -266,15 +259,11 @@ classification_wrapper=function(vessel_data, pars, write.output = F, output.name
 ###--- Check cluster----
 #' This function analyze the speed profile of the points contained within a spatial cluster, and indicates if proportion of the point indicated by the target speed is above a specified threshold.
 #'
-#'
 #' @param data: AIS positions with a column indexing the points belonging to spatial clusters and one indicating the cluster identified by the k-means for each point
 #' @param gear: target fishing gear. Accepted values are PTM, PS
 #' @param threshold: threshold to filter target speed data
 #' @param low_speed: indicates which is the cluster of the k-means referring to the target speed
 #'
-#' @return
-#'
-#' @examples
 check_cluster=function(data, gear, threshold, low_speed){
   xvar=paste0("cluster_", gear)
   data=data[!is.na(data[,xvar]),]
@@ -303,13 +292,10 @@ check_cluster=function(data, gear, threshold, low_speed){
 }
 
 ###--- Classify ####
-# This function identify the size of each track
+#' This function identify the size of each track
 #'
 #' @param data: output of classify_speed
 #'
-#' @return
-#'
-#' @examples
 classify=function(data){
   if(nrow(data)>0){
     data=aggregate(list(ping_number=data$ping_number),
@@ -322,17 +308,14 @@ classify=function(data){
 }
 
 ###--- Classify speed ---####
-# Description: this function applies the kmeans algorithm on fishing speed data, then it use time information to identify transmission gaps (or data with time lag > parameter specified by user).
-# Classification results are homogenized with a lookahed and finally points are clustered into tracks basing on kmeans result and time information
+#' This function applies the kmeans algorithm on fishing speed data, then it use time information to identify transmission gaps (or data with time lag > parameter specified by user).
+#' Classification results are homogenized with a lookahed and finally points are clustered into tracks basing on kmeans result and time information
 #'
 #' @param data: AIS positions
 #' @param gear: target gear. Accepted values are OTB1, OTB2, PTM, TBB, PS
 #' @param xcentroids: object containing the centroid list inherited from the input .csv file
 #' @param pars: object storing the parameter file
 #'
-#' @return
-#'
-#' @examples
 classify_speed=function(data, gear, xcentroids, pars){
   cent=xcentroids[, gear]
 
@@ -392,14 +375,11 @@ classify_speed=function(data, gear, xcentroids, pars){
 
 
 ###--- Core function ####
-# Description: the core function process one fishing trip at time. It search for spatial clusters of points by appliying a dbscan algorithm and then it classify the fishing data basing on the speed by applying a kmeans algorithm. Information on the spatial cluster and on the speed classification are evaluated within a set of rules designed to identify a range of fishing gears.
+#' The core function process one fishing trip at time. It search for spatial clusters of points by appliying a dbscan algorithm and then it classify the fishing data basing on the speed by applying a kmeans algorithm. Information on the spatial cluster and on the speed classification are evaluated within a set of rules designed to identify a range of fishing gears.
 #'
 #' @param trip_data: list of AIS positions divided by trip
 #' @param pars: object storing the parameter file
 #'
-#' @return
-#'
-#' @examples
 core_function=function(trip_data, pars){
   print (paste("MMSI:", unique(trip_data$MMSI),"; start month:", unique(trip_data$start_month), "; trip:", unique(trip_data$trip), sep=" "))
   ## format timestamp
@@ -624,15 +604,13 @@ core_function=function(trip_data, pars){
 
 
 ###--- Create fishing trip ####
-#The create_fishing_trip function aims to identify the fishing trips of each vessel. A fishing trip is composed by the sequence of points broadcasted by a vessel, from when it leaves the port until it returns. To run the function, four datasets are required: the sequence of AIS positions of a vessel, the coastal_ban_zone layer and the 2 layers related to the ports
+#' The create_fishing_trip function aims to identify the fishing trips of each vessel. A fishing trip is composed by the sequence of points broadcasted by a vessel, from when it leaves the port until it returns. To run the function, four datasets are required: the sequence of AIS positions of a vessel, the coastal_ban_zone layer and the 2 layers related to the ports
 #'
 #' @param data: AIS positions
 #' @param ports: port locations (.shp)
 #' @param ports_buffer: 1 km buffer, created around the input ports (.shp)
+#' @param coastal_ban_zone: : zone where the use of towed gears is prohibited (.shp)
 #'
-#' @return
-#'
-#' @examples
 create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
   if(nrow(data )< 10){
     trip_table=NULL
@@ -956,13 +934,10 @@ create_fishing_trip <- function(data, ports,  ports_buffer, coastal_ban_zone){
 
 
 ###--- Data partitioning for model ####
-#' Title
+#' This function serve to format the data required to train the Random Forest algorithm.
 #'
 #' @param data: ground truth information for vessels gear
 #'
-#' @return
-#'
-#' @examples
 data_partition <- function(data){
   ref_gear = c("OTB", "LLS" , "PS", "PTM" , "TBB" , "DRB" , "LLD" )
   ref_gear2 = c("OTB", "PS", "PTM" , "TBB")
@@ -1002,14 +977,10 @@ data_partition <- function(data){
 
 
 ###--- Decision gear ---####
-# This function function uses the trained Random Forest model to predict the fishing gear for each month., The features used to predict the monthly gear consist in the ratio between  the trip labelled as positive for each gear and the total number of the fishing trips (ratio_otb1; ratio_otb2; ratio_ptm; ratio_tbb; ratio_ps).
-#' Title
+#' This function function uses the trained Random Forest model to predict the fishing gear for each month., The features used to predict the monthly gear consist in the ratio between  the trip labelled as positive for each gear and the total number of the fishing trips (ratio_otb1; ratio_otb2; ratio_ptm; ratio_tbb; ratio_ps).
 #'
 #' @param data: requires the binary results of the classification algorithms for each fishing trip (output of the classification wrapper “dat_classified[["classification_result"]]”)
 #'
-#' @return
-#'
-#' @examples
 decision_gear<-function(data){
   data=split(data, data$start_month)
   monthly_gears=lapply(data, function(xdata){
@@ -1124,14 +1095,11 @@ decision_gear<-function(data){
 
 
 ###--- Estimate fishing effort ####
-#' Title
+#' This function returns a grid populated with cumulative fishing time for the period covered by the input data (hours fishing vessels spent operating gear in each grid cell).
 #'
 #' @param fishing_tracks: spatial object containing the geometries of the fishing activity
 #' @param grid: spatial object containing the reticule covering the area of interest that will be intersected with the fishing tracks.
 #'
-#' @return
-#'
-#' @examples
 estimate_fishing_effort <- function(fishing_tracks, grid){
   lapply(fishing_tracks, function(x){
     if(is.data.frame(x)){
@@ -1170,16 +1138,14 @@ estimate_fishing_effort <- function(fishing_tracks, grid){
   })
 
 }
+
+
 ###--- Find in harbours ####
-# This function is used to individuate if there are points (x,y) that fall within the polygon of harbours, and, eventually, it indicates which are these points.
-#' Title
+#' This function is used to individuate if there are points (x,y) that fall within the polygon of harbours, and, eventually, it indicates which are these points.
 #'
 #' @param data: AIS positions
 #' @param ports: ports layer
 #'
-#' @return
-#'
-#' @examples
 find_inport = function(data, ports){
   data = st_as_sf(data, coords = c("longitude", "latitude"))
   st_crs(data) = wgs
@@ -1187,17 +1153,15 @@ find_inport = function(data, ports){
   inports = xintersection$row.id
   return(inports)
 }
+
+
 ###--- Find the closest harbour ####
-#This function is used to assign the beginning and ending ports of fishing trips. The departure or the arrival harbor was assigned considering the closest harbor with respect to the first or last position of the trip
-#' Title
+#' This function is used to assign the beginning and ending ports of fishing trips. The departure or the arrival harbor was assigned considering the closest harbor with respect to the first or last position of the trip
 #'
 #' @param longitude: longitude coordinate of the first or last point of the fishing trip
 #' @param latitude: latitude coordinate of the first or last point of the fishing trip
 #' @param ports: is the shapefile with harbors locations
 #'
-#' @return
-#'
-#' @examples
 closest_port=function(longitude , latitude, ports){
   pos = data.frame(x = longitude , y =latitude)
   pos = st_as_sf(pos, coords=c("x", "y"))
@@ -1210,17 +1174,15 @@ closest_port=function(longitude , latitude, ports){
 
 
 ###--- Find the closest harbour recovery ####
-#This function is used to assign the beginning and ending ports of fishing trips during the recovery step of the create fishing trip function. This function individuate if there are harbours closest then 50 km with respect to the first or last position of the trip. If there are harbours, the function select the closest five, then it checks if the reference_port is included in the closest five. If yes, it assign this harbour, if no, it assign the closest harbour.
-#' Title
+#' This function is used to assign the beginning and ending ports of fishing trips during the recovery step of the create fishing trip function.
+#' This function individuate if there are harbours closest then 50 km with respect to the first or last position of the trip. If there are harbours, the function select the closest five, then it checks if the reference_port is included in the closest five.
+#' If yes, it assign this harbour, if no, it assign the closest harbour.
 #'
 #' @param longitude: longitude coordinate of the first or last point of the fishing trip
 #' @param latitude: latitude coordinate of the first or last point of the fishing trip
 #' @param ports: ports layer
 #' @param reference_port: is the harbour at the other extremity of the fishing trip. Example: if longitude and latitude indicates the first point of the trip, reference_port will be the port of arrival
 #'
-#' @return
-#'
-#' @examples
 closest_port_recovery=function(longitude , latitude, ports, reference_port){
   pos = data.frame(x = longitude , y =latitude)
   pos = st_as_sf(pos, coords=c("x", "y"))
@@ -1245,17 +1207,13 @@ closest_port_recovery=function(longitude , latitude, ports, reference_port){
 
 
 ###--- Find the overlapping harbour ####
-# This function is used to assign the beginning and ending ports of fishing trips, by the means of a spatial intersection between coordinates and the ports buffer layer. If the intersection is successful, it return the name of the identified harbour
-#' Title
+#' This function is used to assign the beginning and ending ports of fishing trips, by the means of a spatial intersection between coordinates and the ports buffer layer. If the intersection is successful, it return the name of the identified harbour
 #'
 #' @param longitude: longitude coordinate of the first or last point of the fishing trip
 #' @param latitude: latitude coordinate of the first or last point of the fishing trip
 #' @param ports_buffer: 1km buffer of the ports layer
 #' @param ports: ports layer
 #'
-#' @return
-#'
-#' @examples
 get_port=function(longitude, latitude, ports_buffer, ports){
   position = data.frame(longitude = longitude, latitude = latitude)
   position = st_as_sf(position, coords=c("longitude", "latitude"))
@@ -1270,17 +1228,14 @@ get_port=function(longitude, latitude, ports_buffer, ports){
   return(port_selection)
 }
 
+
 ###--- Identify fishing points ####
-# This function recycles the clusters (obtained from k-means analysis for towed gears and from dbscan for purse seiners) and retrieving points corresponding to fishing clusters.
-#' Title
+#' This function recycles the clusters (obtained from k-means analysis for towed gears and from dbscan for purse seiners) and retrieving points corresponding to fishing clusters.
 #'
 #' @param data: requires AIS data, indexed by fishing trip and labelled with the information from k-means and dbscan (output of the classification wrapper “dat_classified[["data_labelled"]]”)
 #' @param gear:  the result of the decision gear function, containing the gear predicted by the Random Forest classifier
 #' @param coord_sys: coordinate reference system (e.g.: WGS 84)
 #'
-#' @return
-#'
-#' @examples
 identify_fishing_points=function(data, gear,coord_sys){
   xdat=split(data, data$start_month)
   xgear=split(gear, gear$start_month)
@@ -1324,15 +1279,11 @@ identify_fishing_points=function(data, gear,coord_sys){
 
 
 ###--- Identify transmission gaps ####
-# This function recycles the data gaps from the function "core_function" and retrieving tracks corresponding to gaps in the AIS signal.
-#' Title
+#' This function recycles the data gaps from the function "core_function" and retrieving tracks corresponding to gaps in the AIS signal.
 #'
 #' @param data: results from “classification wrapper” function, consisting in raw AIS data labelled with the k-means results
 #' @param coord_sys:  coordinates system (e.g.: WGS 84)
 #'
-#' @return
-#'
-#' @examples
 identify_trasmission_gaps=function(data, coord_sys){
   data=data[,c("MMSI","datetime","longitude","latitude","trip", "otb1", "start_month")]
   data$gap=0
@@ -1381,15 +1332,13 @@ identify_trasmission_gaps=function(data, coord_sys){
   }
 }
 
+
 ###--- Import parameters ----
 #' This function allows to load the required parameters of several internal functions
 #'
 #' @param parameters: an external csv file with the following parameters
 #' @param centroids: an external csv file containing the set of centroids values to test using the kmeans method in the classification alghorithm
 #'
-#' @return
-#'
-#' @examples
 inport_parameters <- function(parameters, centroids){
   parameters_tab=read.csv(parameters)
   param=sapply(1:nrow(parameters_tab), function(y) parameters_tab[y,"value"], simplify=F)
@@ -1397,6 +1346,7 @@ inport_parameters <- function(parameters, centroids){
   centroids=read.csv(centroids)
   return(list(param, centroids))
 }
+
 
 ###--- Inspect coastal ban zone ####
 #' This function is used to individuate if the last points of a fishing trip (n) and the first point of the subsequent fishing trip (n+1), lies within the coastal ban zone. It returns the number of points individuated.
@@ -1407,9 +1357,6 @@ inport_parameters <- function(parameters, centroids){
 #' @param latitude_end: latitude coordinates of the last point of the fishing trip n
 #' @param coastal_ban_zone: coastal ban zone layer
 #'
-#' @return
-#'
-#' @examples
 incoastal_ban_zone=function(longitude_start , latitude_start , longitude_end , latitude_end, coastal_ban_zone){
   final_position = data.frame(x = longitude_end , y = latitude_end)
   final_position = st_as_sf(final_position, coords = c("x", "y"))
@@ -1429,11 +1376,8 @@ incoastal_ban_zone=function(longitude_start , latitude_start , longitude_end , l
 #'
 #' @param data: AIS data labelled with the gear identified and with a column (binary) identifying the data considered as fishing activity
 #' @param coord_sys: coordinate reference system (e.g.: WGS 84)
-#' @param pars:  object storing the parameter file
+#' @param pars: object storing the parameter file
 #'
-#' @return
-#'
-#' @examples
 make_fishing_tracks=function(data, coord_sys, pars){
 
   data=data[data$gear %in% c("OTB1", "OTB2", "PTM", "TBB", "PS"),]
@@ -1519,15 +1463,13 @@ make_fishing_tracks=function(data, coord_sys, pars){
   return(f_tracks)
 }
 
+
 ###--- Make tracks lite ---####
 #' This function group points into groups basing on previous function information, than it removes the first and the last steaming tracks
 #'
 #' @param data: AIS positions with a column indicating the cluster identified by the k-means for each point
 #' @param gear: target fishing gear. Accepted values are OTB1, OTB2, TBB, PTM, PS
 #'
-#' @return
-#'
-#' @examples
 make_tracks_lite=function(data, gear){
   # remove blocks composed by one point
   block_count=data.frame(table(data$data_block, dnn=c("data_block")))
@@ -1563,6 +1505,7 @@ make_tracks_lite=function(data, gear){
   }
 }
 
+
 ###--- Search clusters ---####
 #' This function applies the dbscan algorithm to identify spatial clusters in the input data
 #'
@@ -1570,9 +1513,6 @@ make_tracks_lite=function(data, gear){
 #' @param pars: object storing the parameter file. Different parameters are provided for different fishing gears
 #' @param gear: target fishing gear. Accepted values are OTB1, OTB2, PTM, TBB
 #'
-#' @return
-#'
-#' @examples
 search_cluster=function(data, pars, gear){
   neighborhood_rf=paste0("range_", gear)
   neighborhood=pars[[neighborhood_rf]]
