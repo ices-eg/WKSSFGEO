@@ -61,6 +61,7 @@ table(out11$source)
 #Use function to extract the trips from the dataset
 out2 <- define_trips_pol(out11, min_dur = 0.8, max_dur = 48, 
                          split_trips = T, preserve_all = F)
+saveRDS(out2, "data/jepol_pp_trip.rData")
 schedule <- out2[,.(depart = min(time_stamp), return = max(time_stamp))
                  , by = .(vessel_id, trip_id)]
 schedule <- schedule[!is.na(trip_id)]
