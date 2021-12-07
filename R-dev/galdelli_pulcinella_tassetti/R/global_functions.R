@@ -7,7 +7,7 @@
 #
 #Script Name: global_functions.R
 #
-#Script Description: list of functions used in workflow_orginal_version.R script
+#Script Description: list of functions used to run the original Galdelli et al., 2019 workflow on the available in the wgssfgeo.
 #
 
 
