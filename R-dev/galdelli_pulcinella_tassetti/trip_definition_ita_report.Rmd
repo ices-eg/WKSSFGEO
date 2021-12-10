@@ -1,0 +1,307 @@
+---
+title: "create_fishing_trip_galdelli"
+author: "Jacopo Pulcinella"
+date: "6/12/2021"
+output:
+  word_document:
+    reference_docx: reference_wordstyle-1.docx
+geometry: left=3cm,right=3cm,top=2cm,bottom=2cm
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+sf::sf_use_s2(FALSE)
+options(scipen = 10000)
+
+# for the geom_sf in ggmap https://stackoverflow.com/questions/47749078/how-to-put-a-geom-sf-produced-map-on-top-of-a-ggmap-produced-raster
+ggmap_bbox <- function(map) {
+  if (!inherits(map, "ggmap")) stop("map must be a ggmap object")
+  # Extract the bounding box (in lat/lon) from the ggmap to a numeric vector, 
+  # and set the names to what sf::st_bbox expects:
+  map_bbox <- setNames(unlist(attr(map, "bb")), 
+                       c("ymin", "xmin", "ymax", "xmax"))
+  
+  # Coonvert the bbox to an sf polygon, transform it to 3857, 
+  # and convert back to a bbox (convoluted, but it works)
+  bbox_3857 <- st_bbox(st_transform(st_as_sfc(st_bbox(map_bbox, crs = 4326)), 3857))
+  
+  # Overwrite the bbox of the ggmap object with the transformed coordinates 
+  attr(map, "bb")$ll.lat <- bbox_3857["ymin"]
+  attr(map, "bb")$ll.lon <- bbox_3857["xmin"]
+  attr(map, "bb")$ur.lat <- bbox_3857["ymax"]
+  attr(map, "bb")$ur.lon <- bbox_3857["xmax"]
+  map
+}
+
+```
+
+## Aims and description of the create_fishing_trip function
+<p> The results presented below report on the application of the function create_fishing_trip. It is part of the Italian workflow that was originally developed for t-AIS data and large scale fishery, and mainly for trawl fisheries. The function defines trips as sequences of points broadcasted by a vessel, from the time it leaves the port until it returns, and stores related information on the port of departure and of arrival (i.e., harbor name, country and statistical area). According to the discussion held during the WGSSFGEO such definition of fishing trip works better for mobile gears, while it might be incorrect for passive gears since it does not require at least one fishing event during the trip.
+
+<p> Since gaps in t-AIS data (i.e., loss of signal of at least 30 minutes) can hamper the identification of the departure and arrival ports, a recovery function was internally applied to join consecutive trips where the departure/arrival port was too far to be assigned. In order to join consecutive trips the function overlays the ending/starting points with the coastal_ban_zone, compares ids between consecutive ending/starting points, compares timestamps and forces a starting and ending port for each trip. In particular, fishing trips are joined and the nearest port is assigned if ending and starting points are consecutive, have a temporal distance shorter than 24 h and at least one is outside the coastal_ban_zone. At the end of the recovery process, for trips that still miss departure and/or arrival ports, the internal function closest_port_recovery is used to force port assignment under other conditions.
+
+<p> The original method used in the analysis was released by Galdelli at al.,  2019 at https://doi.org/10.5281/zenodo.4761890. To run the workflow with different AIS or GPS data, a modified version was released at https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti, together with the following and required additional layers: 
+
+*   ICES and Mediterranean ports. It was obtained merging the Mediterranean ports (https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/med_harb_gsa.rData) with those available in the WGSSFGEO repository (https://github.com/ices-eg/WKSSFGEO/raw/main/data/harbours.rds). 
+
+*   3 nm buffer of the line coast of the Northern Europe (https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/coastal_ban_zone_nord_eu.rData).
+
+*   Trawling ban for the Mediterranean Sea, covering  the  minimum  distances  and  depths  for  the  use  of  towed gears, as defined by Article 13 of EU Council Regulation 1967/2006. It is bounded by the 3 nautical-mile line or by the 50 m isobath where that depth is reached at a shorter distance from the coast.
+
+<p> We applied the create_fishing_trip function and the Worflow_jepol.R (available at https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/jepol/Workflow_jepol.R) to the same sample of AIS data available at https://github.com/ices-eg/WKSSFGEO/tree/main/data-examples. Resulting trips were compared in terms of numbers and duration. 
+
+## Data analysis
+### Application of the function create_fishing_trip from Galdelli et al., 2019
+
+<p> We loaded all the functions required from the source file and general settings for the workflow. 
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+install.missing.packages = F
+wgs="+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
+file_centroids<-"data/centroids.csv" # for classification
+file_parameters<-"data/parameters.csv"  # generic for different functions
+devtools::source_url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/dev_branch/R-dev/galdelli_pulcinella_tassetti/R/global_functions.R")
+
+centroids=inport_parameters(file.path(file_parameters), file.path(file_centroids))[[2]] 
+pars=inport_parameters(file.path(file_parameters), file.path(file_centroids))[[1]]
+```
+<br>
+
+<p> From the WGSSFGEO repository we selected a data sample from a single vessel (EX_1) and renamed the columns according to the Galdelli method.
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+# Download example file
+dat <- read.csv(url("https://raw.githubusercontent.com/ices-eg/WKSSFGEO/main/data-examples/example_data_AIS.csv"))
+head(dat)
+vessels <-"EX_1" 
+dat_1v = dat %>%
+  filter(vessel_id == vessels)
+all_dat_ita_format<-as.data.frame(dat_1v) %>%
+  mutate(datetime = time_stamp, MMSI = vessel_id, longitude = lon, latitude = lat) 
+all_dat_ita_format<-all_dat_ita_format[,c("MMSI", "datetime", "longitude", "latitude", "speed")] # select fields of interest
+```
+<br>
+
+<p> To run the function create_fishing_trip, four datasets are required: the sequence of AIS positions of a vessel, the coastal_ban_zone layer, and 2 layers related to the ports. The spatial layer required for the trip algorithm are:
+
+*     We merged the Mediterranean and Northern European ports in a single layer as required by the algorithm. As shown in the figure below, Portuguese harbours are missing.
+<br>
+
+```{r, warning=FALSE, message=FALSE, fig.dim = c(8, 5)}
+# Mediterranean harbours
+med_harb = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/med_harb_gsa.rData?raw=true")) %>%
+  st_set_crs(4326) %>%
+  mutate(SI_HARB = 1)
+
+# Northern Harbours
+nord_harb = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/main/data/harbours.rds?raw=true")) %>%
+  st_set_crs(4326)
+nord_harb_edit = nord_harb %>%
+  mutate(Country = 1:nrow(nord_harb), harbour = 1:nrow(nord_harb), area = 1:nrow(nord_harb))
+
+# combine harbours 
+all_harb = rbind(med_harb, nord_harb_edit)
+
+#the file was exported in the link reported below
+# import list of ports 
+ports = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/ices_med_harbours.rData?raw=true"))
+ports <- ports %>%
+  dplyr:::rename("GSA" = "area")
+st_crs(ports) <- 4326
+port_buf<-st_buffer(ports, 0.001) # create a buffer
+st_crs(port_buf) <- 4326   # set crs
+
+ggplot() +
+  geom_sf(data = ports) + 
+  theme_void()
+```
+<br>
+
+*     The coastal ban polygon. Two coastal ban layers are available: the Mediterranean, created by the Italian teams and the northern European ban, created ad hoc for the WGSSFGEO using Qgis. 
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+# Mediterranean ban
+med_ban = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/coastal_ban_zone_med.rData?raw=true")) %>%
+  st_set_crs(4326) 
+# Northern EU ban
+nord_ban = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/coastal_ban_zone_nord_eu.rData?raw=true")) %>%
+  st_set_crs(4326)
+```
+<br>
+
+<p> We considered the Northern European ban zone, according to the spatial extension of the vessel position data to process). 
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+all_dat_ita_format_1v =all_dat_ita_format %>% 
+  filter(MMSI == vessels)
+head(all_dat_ita_format_1v)
+
+# Fishing trip 
+dat_trip=create_fishing_trip(data=all_dat_ita_format_1v,
+                             ports=ports, 
+                             ports_buffer=port_buf,
+                             coastal_ban_zone=nord_ban)
+
+dat_trip
+```
+<br>
+
+### Application jepol workflow 
+<p> An R script was available to reproduce the jepol’s workflow with its own orginal data at https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/jepol/Workflow_jepol.R. We run the code available at https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/R/Workflow_jepol_edit_jp.R and saved the result in the folder https://github.com/ices-eg/WKSSFGEO/tree/dev_branch/R-dev/galdelli_pulcinella_tassetti/results. 
+We applied the function define_trips_pol that resulted in a dataset of pings with the trip label (jepol_pp_trip) and in a trip table reporting the scheduling information of each trip (schedule).
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+# ping with trip label
+jepol_pp_trip = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/jepol_pp_trip.rData?raw=true"))
+head(jepol_pp_trip)
+# trip table
+schedule = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/jepol_trips.rData?raw=true"))
+head(schedule %>% 
+       filter(vessel_id == vessels))
+```
+<br>
+
+### Comparison
+As reported from the examples above, the functions create_fishing_trips and define_trip_pol gave consistent resulting trip tables for vessel EX_1.
+The create_fishing_trip function was then applied locally to the whole dataset. Since the function requires about 5 minutes, we ran the analysis locally and we loaded the results in the link used in the code.
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+# results of create_fishing_trips, arrange columns to be consistent with the preaviuos dataset
+# load the result of the local run on the whole dataset
+# Not run - it take ~5 mins, load files from git
+# dat = as.data.frame(dat) %>%
+#   mutate(datetime = time_stamp, MMSI = vessel_id, longitude = lon, latitude = lat) 
+# dat<-dat[,c("MMSI", "datetime", "longitude", "latitude", "speed")]
+# dat_trip=create_fishing_trip(data=dat,
+#                              ports=ports,
+#                              ports_buffer=port_buf,
+#                              coastal_ban_zone=coastal_ban_zone)
+# dat_with_trip=assign_trip(data=dat,
+#                           trip_table=dat_trip)
+# pings with trip labels
+dat_pp_trip = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/galdelli_pp_trips.rData?raw=true"))
+# trips table
+dat_trip = readRDS(url("https://github.com/ices-eg/WKSSFGEO/blob/dev_branch/R-dev/galdelli_pulcinella_tassetti/data/galdelli_trips.rData?raw=true")) %>%
+  mutate(duration_hrs = as.numeric(difftime(end_timestamp, start_timestamp, units = "hours")))
+```
+<br>
+
+<p> For each vessel, we calculated the number of trips identified by each method (ntrip), their cumulative and average duration (duration_cum and duration_mean, respectively), and evaluated the difference between these metrics (see trip_stat table). We summarized this information in a new table that reports for each vessel and variable the percentage difference between the 2 methods.
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+# results of jepol workflow
+trip_stat_jepol = schedule %>% 
+  group_by(vessel_id) %>%
+  dplyr:::summarise(ntrip = length(trip_id),
+                    duration_mean = round(mean(duration_hrs),2),
+                    duration_cum = round(sum(duration_hrs),2)) %>%
+  mutate(source = "jepol") %>%
+  melt(id.var = c("vessel_id", "source"))
+
+# results of galdelli workflow
+trip_stat_galdelli = dat_trip %>% 
+  group_by(MMSI) %>%
+  dplyr:::summarise(ntrip = length(trip),
+                    duration_mean = round(mean(duration_hrs),2),
+                    duration_cum = round(sum(duration_hrs),2)) %>%
+  mutate(source = "galdelli") %>%
+  mutate(vessel_id = MMSI) %>% dplyr:::select(-MMSI) %>%
+  melt(id.var = c("vessel_id", "source"))
+
+# combine and arrange datasets
+trip_stat = rbind(trip_stat_jepol, trip_stat_galdelli) %>%
+  dcast(vessel_id + variable ~ source, value.var = "value", fun.aggregate = sum) %>%
+  mutate(difference = round(galdelli - jepol, 2),
+         difference_perc = round((1 - jepol/galdelli)*100, 2))
+trip_stat
+```
+<br>
+
+<p> There are 8 out of 12 vessels with a perfect correspondence in terms of number of trips identified by both methods. 
+```{r, warning=FALSE, message=FALSE}
+# total vessel
+length(unique(trip_stat$vessel_id))
+#correct
+length(which(trip_stat$difference == 0 & trip_stat$variable == "ntrip"))
+# correct vessel
+trip_stat$vessel_id[which(trip_stat$difference == 0 & trip_stat$variable == "ntrip")]
+```
+<br>
+
+<p> We applied a trip to trip comparison evaluating the overlap between the temporal intervals of the trips identified by both methods. We used the trip table of the jepol workflow as reference and evaluated the correspondence between trips also using the total duration of the identified intervals. 
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+xvessels = unique(schedule$vessel_id)
+out = NULL
+no_trip = NULL
+for(i in 1:length(xvessels)){
+  #jepol track
+  xdat_jepol = schedule %>%
+    filter(vessel_id == xvessels[i]) %>%
+    mutate(jepol_int = interval(depart, return, tzone = "UTC"))
+  
+  # formatting galdelli data
+  xdat_galdelli = dat_trip %>%
+    filter(MMSI == xvessels[i]) %>%
+    mutate(galdelli_int = interval(start_timestamp, end_timestamp, tzone = "UTC"))
+  
+  # extract only galdelli trips with temporal overlap with jepol trip
+  for(j in 1:nrow(xdat_jepol)){
+    xtrip = as.data.frame(xdat_jepol)[j,] %>%
+      dplyr:::select(vessel_id, trip_id, jeopl_dur = duration_hrs, jepol_int) %>%
+      ungroup()
+    xtrip_merge =  merge(xtrip,
+                         xdat_galdelli %>%
+                           ungroup() %>%
+                           dplyr:::rename("vessel_id" = "MMSI") %>%
+                           dplyr:::select(vessel_id, galdelli_int, galdelli_dur = duration_hrs, trip),
+                         by = c("vessel_id"))
+    xtrip_intersect = xtrip_merge[which(as.logical(intersect(xtrip_merge$galdelli_int, xtrip_merge$jepol_int))),]
+    if(nrow(xtrip_intersect) == 0){
+      xxtrip = cbind(xtrip, galdelli_dur = NA, galdelli_int = NA, trip = NA)
+      no_trip = rbind(no_trip, xxtrip)  
+    }else{
+      if(nrow(xtrip_intersect) == 1 & (xtrip_intersect$galdelli_dur >= xtrip_intersect$jeopl_dur - xtrip_intersect$jeopl_dur*0.1 &
+                                       xtrip_intersect$galdelli_dur <= xtrip_intersect$jeopl_dur + xtrip_intersect$jeopl_dur*0.1)){
+        next()
+      }else{
+        out = rbind(out, xtrip_intersect)                                 
+      }
+    }
+  }
+}
+out = out %>% 
+  dplyr:::select(-vessel_id, jepol_int, galdelli_int, trip_id, trip) %>% 
+  mutate(jepol_dur = round(as.numeric(as.duration(jepol_int))/60/60,1), galdelli_dur = round(as.numeric(as.duration(galdelli_int))/60/60,1))
+out = out[,c("jepol_int", "galdelli_int", "trip_id", "trip", "jepol_dur", "galdelli_dur")]
+```
+<br>
+
+<p> The following table reports the trips defined with jepol workflow with no single correspondences or difference in the duration with respect to the trips identified using the galdelli workflow. In some cases, the create_fishing_trips identified more trips than those defined by the jepol workflow. This happened for example for vessel EX_10 for which 3 trips were identified by the define_trips_pol function (EX_10_4, EX_10_5, EX_10_6) while only 2 trips were defined by the create_fishing_trips function (trip 13, 15). In other cases, the create_fishing_trips was not able to split trips correctly, as happened for vessels EX_11 and EX_7 whose estimated trips lasted more than 2000 and 800 hours respectively. On the contrary, the durations of the trips EX_3_15 and EX_7_6 identified by define_trips_pol function, respectively 688 and 6301 hours, reveal some errors in their definition. According to these issues, the number of trips identified for vessels EX_3, EX_7, EX_9, and EX_10 by the define_trips_pol did not correspond with those identified with the create_fishing_trips function.
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+out
+```
+<br>
+
+## Conclusion
+<p> The application of the create_fishing_trips requires data to be formatted as indicated in the Galdelli 2019 workflow. (i.e., changing the column names according to the name of the dataset used in the original workflow). Further, for data that spatially extend outside the Mediterranean sea, it is required also an update of some input spatial layers.
+
+<p> The comparison between the results of the define_trip_pol with those of the create_fishing_trips revealed errors in both the procedures. At this stage an in-depth analysis of the errors was not carried out. However, the list of vessels with erroneous data was identified, promoting future comparison.
+
+<p> The create_fishing_trip function does not require interpolation and it works on preprocessed (i.e., cleaned) pings. However, using the spatial layer of the harbours and the polygon of the ban, the function is able to reconstruct trips also when data gaps are present and when final positions are not in harbours.
+
+<p> Since a priori knowledge of the duration of a trip is not available, the create_fishing_trip function does not require a specific definition of the minimum and maximum duration. The function reads each ping of a vessel using a sliding window of a certain size (from 3 to 6 pings) and handles several features that occur (i.e,. data gap, harbour assignment, or trip joining). On the contrary, the define_trip_pol uses a minimum and maximum duration to split the trips. However, applying this function with default parameters, it estimated trips with duration greater than the maximum allowed.
+
+<p> Further, it is relevant to note that the create_fishing_trip function requires about 5 minutes to process the whole dataset, while the define_trip_pol function used in the jepol workflow is faster (i.e., less than a minute). This probably due to the nature of the data for which the methods were developed. In t-AIS data, as those for which the create_fishing_trips function was originally designed, the presence of numerous gaps requires a ping to ping analysis to define the end of a trip and the starting of the subsequent one.  
+
+<p> Finally, the results presented in this work refer to a single application of the create_fishing_trip function. We tried also to apply the method to the data available in at https://github.com/ices-eg/WKSSFGEO/blob/main/data-examples/example_data_GPS.csv, but in this area (i.e., Portugal) the create_fishing_trips function does not apply because harbours are not available.
