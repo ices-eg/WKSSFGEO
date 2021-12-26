@@ -13,11 +13,9 @@
 #' @return a gps dataset that has added the interpolated points
 #' @export
 #'
-#' @examples
 interpolate_ais <- function(x, headingAdjustment = 0, min_gap = 2, max_gap = 120,
                             source = "AIS"){
   #add required packages
-  require(data.table)
   '%!in%' <- function(x,y)!('%in%'(x,y))
   
   # Progress bar function
@@ -44,7 +42,7 @@ interpolate_ais <- function(x, headingAdjustment = 0, min_gap = 2, max_gap = 120
   
 
   #Make the dataset into a data.table
-  setDT(x)
+  data.table::setDT(x)
   
   if("SI_HARB" %!in% names(x))
     stop("No harbour column in dataset, please add it (add_harbour)")
@@ -75,7 +73,7 @@ for(startPOS in 1:(nrow(dss)-1)){
 
     #Calculate speed if not present in the dataset (from coordinates (knots))
     if(is.na(dss$speed[startPOS])){
-      dist <- as.numeric(st_distance(pts[endPOS,], pts[startPOS,]))
+      dist <- as.numeric(sf::st_distance(pts[endPOS,], pts[startPOS,]))
       sp <- dist /1000 / dss$INTV[endPOS] *60 / 1.852
       dss$speed[startPOS] <- sp
     }
@@ -150,8 +148,8 @@ for(startPOS in 1:(nrow(dss)-1)){
 if(!identical(out, list())){
   
   dss$id2 <- 1:nrow(dss)
-  dss <- rbindlist(list(dss, 
-                        rbindlist(lapply(out, as.data.table), idcol='id2')), 
+  dss <- data.table::rbindlist(list(dss, 
+                        data.table::rbindlist(lapply(out, data.table::as.data.table), idcol='id2')), 
                    use.names=TRUE, fill=TRUE)[order(id2)]
   
   names(dss)[(ncol(dss)-4):ncol(dss)] <- c("lon1", "lat1", "sp", "ti", "ty")
@@ -162,14 +160,14 @@ if(!identical(out, list())){
   dss[, INTV:=-as.numeric(difftime(data.table::shift(dss$time_stamp, fill = NA, type = "lag"), dss$time_stamp, units = "secs"))]
   dss[, c("id2","lon1", "lat1","sp", "ti","ty"):=NULL] 
   dss[, vessel_id := i]
-  setorder(dss, time_stamp)
+  data.table::setorder(dss, time_stamp)
 }
 
 
 dss[, id := 1:nrow(dss)]
-dss[, year := year(time_stamp)]
+dss[, year := data.table::year(time_stamp)]
 
-DT <- rbindlist(list(DT, dss), fill = T)
+DT <- data.table::rbindlist(list(DT, dss), fill = T)
 }
 return(DT)
 }

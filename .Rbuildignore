@@ -12,3 +12,4 @@
 ^remains
 ^data/*.rds
 ^einarhj_webupdate.R
+^LICENSE\.md$

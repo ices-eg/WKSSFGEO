@@ -13,11 +13,10 @@
 downsample_ais_timestep <- function(x, unit = "min", length = 1){
 
 
-setDT(x)[,time_stamp2 := time_stamp]
+data.table::setDT(x)[,time_stamp2 := time_stamp]
   x[, downsample := NULL]
 x[, recid := 1:.N]
 
-require(data.table)
 '%!in%' <- function(x,y)!('%in%'(x,y))
 progress <- function (x, max = 100) {
   percent <- x / max * 100
@@ -44,7 +43,7 @@ ref <- c(ref, ais$recid)
 x[recid %in% ref, downsample := 1]
 x[is.na(downsample), downsample := 0]
 
-setorder(x, vessel_id, time_stamp)
+data.table::setorder(x, vessel_id, time_stamp)
 x[, time_stamp2 := NULL]
 x[, recid := NULL]
 

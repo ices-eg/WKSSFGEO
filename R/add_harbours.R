@@ -3,35 +3,26 @@
 #' A function that will add a column "SI_HARB" to the gps datset
 #' SI_HARB = 1 is where the vessel is considered in harbour
 #'
-#' @param gps dataset
-#' @param harbour polygons
+#' @param x gps dataset
+#' @param y harbour polygons
 #'
 #' @return A gps datset with an extra column "SI_HARB"
+#' 
+#' @export
 
 
-add_harbours <- function(x, y){
-  #add required packages
-  require(data.table, sf)
-  x[, lon2 := lon]
-  x[, lat2 := lat]
+add_harbours <- function(x, y) {
+  
+  # Needed checks
+  # x has to contain variables lon and lat
+  # y has to be of class sf and contain variable SI_HARB
+  
+  x %>%
+    sf::st_as_sf(coords = c("lon", "lat"),
+                 crs = 4326,
+                 remove = FALSE) %>% 
+    sf::st_join(y, join = sf::st_intersects) %>% 
+    sf::st_drop_geometry() %>% 
+    dplyr::mutate(SI_HARB = tidyr::replace_na(SI_HARB, 0))
 
-  #Make gps dataset spatial
-dss <- x %>%
-  sf::st_as_sf(coords = c("lon2","lat2")) %>%
-  sf::st_set_crs(4326)
-
-x[, lon2 := NULL]
-x[, lat2 := NULL]
-
-# Add a column to the dataset, 1 = in Harbour
-dss <- sf::st_join(dss, y, join = sf::st_intersects)
-
-setDT(dss)
-
-#If its no inside a harbour set the SI_HARB to 0
-dss[is.na(SI_HARB), SI_HARB := 0]
-
-dss[, geometry := NULL]
-
-return(dss)
 }
