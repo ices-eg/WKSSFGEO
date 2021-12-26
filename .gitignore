@@ -16,4 +16,3 @@ einarhj_webupdate.R
 R-dev/einar/older
 data-raw
 R/data.R
-data/*.rda
