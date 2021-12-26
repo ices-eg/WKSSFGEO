@@ -5,7 +5,7 @@ CustomizedProjectedCRS <- function( sfobj ){
 
   if( inherits(sfobj, "Spatial")) { sfobj <-  sf::st_as_sf(sfobj)  }
   if( !inherits(sfobj, "sf")) stop("sfobj must be a sf spatial Object with valid CRS set")
-  if( is.na(st_crs(sfobj))) stop("sfobj must be a sf spatial Object with valid CRS set")
+  if( is.na(sf::st_crs(sfobj))) stop("sfobj must be a sf spatial Object with valid CRS set")
 
   bb <- sf::st_bbox( sf::st_transform(sfobj, crs = sf::st_crs(4326)))
   bbox <- sf::st_sf("bb", dfTOsf(as.matrix(expand.grid(bb[c("xmin", "xmax")], bb[c("ymin", "ymax")]))[c(1,3,4,2),], type = "polygon"))

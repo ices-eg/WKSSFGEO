@@ -6,7 +6,7 @@
 \alias{WKSSFGEO-package}
 \title{WKSSFGEO: Track functions for AIS/VMS data}
 \description{
-Some convenient functions developed as WKSSFGEO meeting for vessel tracks
+Some convenient functions developed as WKSSFGEO meeting for vessel tracks. Some more description needed.
 }
 \author{
 \strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})

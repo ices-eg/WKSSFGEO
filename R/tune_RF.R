@@ -86,7 +86,7 @@ tune_RF <-
                          write.forest = TRUE, 
                          verbose = FALSE)
     
-    full.design$mse.pred <- predict(mod.optim, full.design)$predictions
+    full.design$mse.pred <- stats::predict(mod.optim, full.design)$predictions
     
     return(list( min.node.size =   full.design[which.min( full.design$mse.pred), "min.node.size"],
                  mtry = full.design[which.min( full.design$mse.pred), "mtry"]))

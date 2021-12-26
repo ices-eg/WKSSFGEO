@@ -26,9 +26,9 @@
 #' sf.lin <- dfTOsf(obj, type = "linestring")
 #' sf.pol <- dfTOsf(obj.pol, type = "polygon")
 #' 
-#' plot( st_geometry(sf.pol), axes = TRUE, ylim = c(330095.1, 334000))
-#' plot( st_geometry(sf.lin), add = TRUE, col ="red")
-#' plot( st_geometry(sf.pts), add = TRUE, col ="blue")  
+#' plot( sf::st_geometry(sf.pol), axes = TRUE, ylim = c(330095.1, 334000))
+#' plot( sf::st_geometry(sf.lin), add = TRUE, col ="red")
+#' plot( sf::st_geometry(sf.pts), add = TRUE, col ="blue")  
 #' 
 #' @export
 #' 
@@ -40,19 +40,19 @@ dfTOsf <- function(df, type = "multipoint", epsg = NA) {
   if(is.vector(df)){
     
     if( type %in% c("linestring", "polygon")){stop("Only one point available, not enough for linestring or polygon type")}
-    sf.obj <- st_cast(st_sfc(st_multipoint(as.matrix(t(df)))),"POINT")
+    sf.obj <- sf::st_cast(sf::st_sfc(st_multipoint(as.matrix(t(df)))),"POINT")
     
   }else{
     
-    if( type == "multipoint") {sf.obj <- st_cast(st_sfc(st_multipoint(as.matrix(df))),"POINT")}
-    if( type == "linestring") {sf.obj <- st_sfc(st_linestring(as.matrix(df)))}
+    if( type == "multipoint") {sf.obj <- sf::st_cast(st_sfc(st_multipoint(as.matrix(df))),"POINT")}
+    if( type == "linestring") {sf.obj <- sf::st_sfc(st_linestring(as.matrix(df)))}
     if( type == "polygon") {
       
       if( sum(duplicated(df))!=1){
         df <- df[!duplicated(df), ]
         df <- rbind(df, df[1,])
-        sf.obj <- st_sfc(st_polygon(list(df)))
-      }else{ sf.obj <- st_sfc(st_polygon(list(df)))} 
+        sf.obj <- st_sfc(sf::st_polygon(list(df)))
+      }else{ sf.obj <- sf::st_sfc(sf::st_polygon(list(df)))} 
     }
     
   }
@@ -60,12 +60,12 @@ dfTOsf <- function(df, type = "multipoint", epsg = NA) {
   if( !is.na(epsg)){
     
     if( !inherits(epsg, "crs") ){
-      crs.obj <- try( st_crs(epsg), silent = TRUE)
+      crs.obj <- try( sf::st_crs(epsg), silent = TRUE)
       if( inherits(crs.obj, "try-error") ){stop("epsg = either a valid sf crs object or an existing epsg")}
     }else{
       crs.obj <- epsg
     }
-    st_crs(sf.obj) <- crs.obj
+    sf::st_crs(sf.obj) <- crs.obj
     
   }
   return(sf.obj)

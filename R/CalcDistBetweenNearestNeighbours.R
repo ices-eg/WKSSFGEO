@@ -14,7 +14,7 @@ CalcDistBetweenNearestNeighbours <- function(trip.path, nnn = 9){
   
   coords <- sf::st_coordinates(trip.planar)
   nghb.mat <- RANN::nn2(coords, k = nnn+1)
-  dist.mat <- setNames( as.data.frame( as.matrix( nghb.mat$nn.dists[, -1])),
+  dist.mat <- stats::setNames( as.data.frame( as.matrix( nghb.mat$nn.dists[, -1])),
                        paste0( "DistWithNeighbour_", set_0nbr(1:nnn), 1:nnn))
   trip.path <- cbind(trip.path, dist.mat)
   

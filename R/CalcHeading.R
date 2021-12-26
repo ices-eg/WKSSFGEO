@@ -7,7 +7,7 @@ CalcHeading <- function(trip.path){
   if(!inherits(trip.path, "sf")) {stop("trip.path must be a valid sf object")}
   if(is.na(sf::st_crs(trip.path))) {stop("CRS must be defined for proper distance calculation")}
   
-  # Projection dans un système de coordonnées planaire centré 
+  # Projection dans un systme de coordonnes planaire centr
   planar.proj <- CustomizedProjectedCRS(trip.path)
   trip.planar <- sf::st_transform(trip.path, planar.proj)
   
