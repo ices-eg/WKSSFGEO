@@ -35,7 +35,7 @@ define_trips_pol <- function(x, min_dur = 0.5, max_dur = 72,
   
   out <- data.table::data.table()
   for(i in unique(x$vessel_id)){
-    progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
+    if(interactive()) progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
     
     gps <- x[vessel_id == i]
     
