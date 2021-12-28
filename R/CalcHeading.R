@@ -2,6 +2,13 @@
 ### Calculate Heading
 ### Return the original sf object with a column "HEADING.deg" in degrees
 
+#' Calculate Heading
+#'
+#' @param trip.path xxx
+#'
+#' @return The original sf object with a column "HEADING.deg" in degrees
+#' @export
+#'
 CalcHeading <- function(trip.path){
   
   if(!inherits(trip.path, "sf")) {stop("trip.path must be a valid sf object")}
@@ -26,5 +33,10 @@ CalcHeading <- function(trip.path){
   trip.path <- trip.path[, c(which( !columns.TripPath %in% "geometry"), which( columns.TripPath %in% "geometry"))]
   
   return(trip.path)
+  
+}
+
+
+calc_heading <- function(geometry) {
   
 }

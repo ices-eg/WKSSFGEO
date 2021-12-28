@@ -2,6 +2,17 @@
 ### Calculate distance between positions using great circle distance calculations see ?sf::st_distance
 ### Return the original sf object with a column "DISTANCE.nm" in nautic miles
 
+#' Calculate distance between consequitve points
+#' 
+#' @description Calculate distance between positions using great circle distance 
+#' calculations see ?sf::st_distance
+#'
+#' @param trip.path xxx
+#' @param col.time Varible name containing time (default "time_stamp")
+#'
+#' @return The original sf object with a column "DISTANCE.nm" in nautic miles
+#' @export
+#'
 CalcDist <- function(trip.path, col.time =  "time_stamp"){
   
   if(!inherits(trip.path, "sf")) {stop("trip.path must be a valid sf object")}

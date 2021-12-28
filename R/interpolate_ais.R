@@ -54,7 +54,7 @@ interpolate_ais <- function(x, headingAdjustment = 0, min_gap = 2, max_gap = 120
 DT <- data.table()
 i <- "EX_1"
 for(i in unique(x$vessel_id)){
-  if(interactive) progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
+  if(interactive()) progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
   dss <- x[vessel_id == i]
   
   #Add interval between points (minutes)

@@ -2,6 +2,17 @@
 ### Calculate speed between two positions
 ### Return the original sf object with a column "DIFFTIME.secs" in seconds, "SPEED.kn" in knots and eventually "DISTANCE.nm" in nautic miles if CalcDist hasn't been applied before.
 
+#' Calculate speed between two positions
+#'
+#' @param trip.path xxx
+#' @param col.time Varible name containing time (default "time_stamp")
+#' @param verbose Details of output (default FALSE)
+#'
+#' @return The original sf object with a column "DIFFTIME.secs" in seconds, 
+#' "SPEED.kn" in knots and eventually "DISTANCE.nm" in nautic miles if
+#' CalcDist hasn't been applied before.
+#' @export
+#'
 CalcSpeed <- function(trip.path, col.time =  "time_stamp", verbose = FALSE){
   
   if(!inherits(trip.path, "sf")) {stop("trip.path must be a valid sf object")}

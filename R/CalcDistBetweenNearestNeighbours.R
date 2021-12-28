@@ -1,8 +1,19 @@
 
-### Calculate Distance between the point and its n nearest neighbours
-### Return the original sf object with n columns showing the distances in meters to the n nearest neighbours
-### Use of the method implemented in RANN::nn2 which must be the fastest existing in R for this purpose
+### 
 
+#' Title
+#'
+#' @description Calculate Distance between the point and its n nearest neighbours. 
+#' Use of the method implemented in RANN::nn2 which must be the fastest existing 
+#' in R for this purpose
+#' 
+#' @param trip.path xxx
+#' @param nnn Number of points to calculate (default 9)
+#'
+#' @return The original sf object with n columns showing the distances in meters to the n nearest neighbours
+#' @export
+#'
+#' @examples
 CalcDistBetweenNearestNeighbours <- function(trip.path, nnn = 9){
   
   if(!inherits(trip.path, "sf")) {stop("trip.path must be a valid sf object")}

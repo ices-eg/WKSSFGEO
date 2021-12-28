@@ -1,6 +1,16 @@
 
 ### Calculate Acceleration in meters.s-2
 
+#' Calculate Acceleration in meters.s-2
+#'
+#' @param trip.path xxx
+#' @param col.time Varible name containing time (default "time_stamp")
+#' @param col.speed Variable name containing speed (default "speed")
+#' @param speed.units Speed units (default "knots"), any other interpeted as ms
+#'
+#' @return A track with additional variable named "acceleration"
+#' @export
+#'
 CalcAcceleration <- function(trip.path, col.time =  "time_stamp", col.speed = "speed", speed.units = "knots"){
   
   colnames(trip.path)[ colnames(trip.path) %in% col.time] <- "DATE_TIME"

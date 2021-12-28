@@ -29,7 +29,7 @@ progress <- function (x, max = 100) {
 
 ref <- c()
 for(i in unique(x$vessel_id)){
-  if(interactive) progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
+  if(interactive()) progress(match(i, unique(x$vessel_id)),length(unique(x$vessel_id)))
   
   ais <- x[vessel_id == i]
   intervals <- seq(round(min(ais$time_stamp, na.rm = T), paste(unit)), 
