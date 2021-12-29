@@ -1,0 +1,102 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# WKSSFGEO
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of WKSSFGEO is to provide a convenient wrapper of the data and the
+function that were explored during WKSSFGEO 2021.
+
+## Installation
+
+You can install the development version of WKSSFGEO from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("ices-eg/WKSSFGEO", ref = "pkg")
+```
+
+## Example
+
+This is a basic example which shows you how to solve a common problem:
+
+```{r example}
+library(WKSSFGEO)
+ls(2)
+tracks <- 
+  track01 %>% 
+  data.table::setDT() %>% 
+  unique(by = c("vessel_id", "time_stamp")) %>% 
+  add_harbours(harbours) %>% 
+  interpolate_ais() %>% 
+  define_trips_pol(min_dur = 0.8, max_dur = 48, 
+                   split_trips = T, preserve_all = F)
+```
+
+```{r}
+nnai <- apply( tracks[, c("speed", "course", "behaviour" )], 1, function(x) !anyNA(x))
+trips <- unique(tracks$trip_id)
+out2 <- tracks
+tracks <- do.call( rbind, lapply( trips, function(tp) {
+  
+  out.trip <- out2[nnai, ] %>% as.data.frame
+  out.trip <- out.trip[ out.trip$trip_id %in% tp, ]
+  out.NewCovar <- CalcAcceleration(
+    CalcDistBetweenNearestNeighbours(
+      CalcStraigthness(
+        CalcHeading( sf::st_as_sf( out.trip, 
+                               coords = c("lon", "lat"), crs = 4326))
+        ,   col.Dir = "course"),
+      nnn = 9))
+  return(out.NewCovar)
+}))
+dplyr::glimpse(tracks)
+```
+
+```{r}
+nnn <- 9 # Number of nearest neighbours chosen
+covar.names <- 
+  c("speed", "course", "abs.HeadingChange", "HEADING.deg", "acceleration", 
+    paste0( "DistWithNeighbour_", WKSSFGEO:::set_0nbr(1:nnn), 1:nnn))
+form <- as.formula( paste( "behaviour", paste(covar.names, collapse = "+"), sep = "~"))
+tracks$behaviour <-  factor(as.character(tracks$behaviour))
+# Identify indexes without missing values (normally, none of them should contain missing values)
+nnai <- apply( tracks[, c("behaviour", covar.names)], 1, function(x) !anyNA(x))
+!nnai %>% any
+
+# EINAR: the {tune_RF} finds the "optimimum" min.node.size and mtry to be passed
+#        to {ranger} in the next step
+optim.rf <- WKSSFGEO::tune_RF(formula = form, sf::st_set_geometry(tracks[nnai, ], NULL))
+optim.rf # Automatically selected hyper-parameters
+mod.rf <- ranger::ranger(form, 
+                         sf::st_set_geometry(tracks[nnai, ], NULL),  
+                         importance = "impurity", 
+                         mtry =  optim.rf$mtry, 
+                         min.node.size =  optim.rf$min.node.size, 
+                         num.trees = 500,
+                         write.forest = TRUE)
+mod.rf # OOB prediction error 11.17%
+# Shows variable importance regarding how they contribute to the model
+tibble::tibble(var = names(mod.rf$variable.importance),
+               val = mod.rf$variable.importance) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_pointrange(ggplot2::aes(reorder(var, val), val, ymin = 0, ymax = val)) +
+  ggplot2::coord_flip()
+```
+

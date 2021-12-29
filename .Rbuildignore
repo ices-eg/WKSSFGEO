@@ -13,3 +13,4 @@
 ^data/*.rds
 ^einarhj_webupdate.R
 ^LICENSE\.md$
+^README\.Rmd$
